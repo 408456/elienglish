@@ -198,7 +198,7 @@
             <p class="hero__lead">Для взрослых и детей. Онлайн или с&nbsp;выездом к&nbsp;вам в&nbsp;Санкт&#8209;Петербурге, рядом с&nbsp;метро Электросила.</p>
             <div class="hero__buttons">
               <a class="btn btn--primary" href="#probnyi">Записаться на пробный урок</a>
-              <a class="btn btn--ghost" href="https://t.me/Eligolc" target="_blank" rel="noopener">
+              <a class="btn btn--ghost" href="https://t.me/elienglish_requests_bot" data-bot-link target="_blank" rel="noopener">
                 <svg class="btn__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21.5 4.2 2.9 11.4c-.9.4-.9 1.6.1 1.9l4.6 1.4 1.8 5.6c.2.7 1.1.9 1.6.4l2.6-2.4 4.7 3.5c.6.4 1.4.1 1.6-.6l3.2-15.6c.2-.9-.7-1.6-1.6-1.4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m7.6 14.7 10-7.1-7.7 8.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
                 Написать в Telegram
               </a>
@@ -268,13 +268,16 @@
               <svg class="state-icon" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="26" fill="none" stroke="currentColor" stroke-width="1.6"/><path class="draw" d="m18 29 7 7 13-15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               <h3 class="h3">Заявка отправлена</h3>
               <p>Мы свяжемся с вами и договоримся о времени пробного урока.</p>
+              <div class="form__fallback">
+                <a class="btn btn--primary" id="trial-bot" href="https://t.me/elienglish_requests_bot" target="_blank" rel="noopener" hidden>Получать ответ в Telegram</a>
+              </div>
             </div>
 
             <div class="form__state form__state--error" hidden tabindex="-1">
-              <h3 class="h3">Не получилось отправить</h3>
-              <p>Напишите нам в Telegram или позвоните.</p>
+              <h3 class="h3">Отправьте заявку через Telegram</h3>
+              <p>Нажмите кнопку: откроется наш бот. Нажмите в&nbsp;нём «Старт», и&nbsp;заявка с&nbsp;вашим именем и&nbsp;телефоном придёт преподавателю.</p>
               <div class="form__fallback">
-                <a class="btn btn--primary" href="https://t.me/Eligolc" target="_blank" rel="noopener">Написать в Telegram</a>
+                <a class="btn btn--primary" id="trial-bot-fallback" href="https://t.me/elienglish_requests_bot" data-bot-link target="_blank" rel="noopener">Открыть Telegram</a>
                 <a class="btn btn--ghost" href="tel:+79777480796">+7 977 748-07-96</a>
               </div>
               <button type="button" class="link-btn" data-form-retry>Попробовать ещё раз</button>
@@ -405,7 +408,7 @@
         <div class="faq__head reveal">
           <p class="eyebrow">Вопросы</p>
           <h2 class="h2">Частые вопросы</h2>
-          <p class="lead">Не нашли ответ? <a class="link" href="https://t.me/Eligolc" target="_blank" rel="noopener">Напишите в&nbsp;Telegram</a>.</p>
+          <p class="lead">Не нашли ответ? <a class="link" href="https://t.me/elienglish_requests_bot" data-bot-link target="_blank" rel="noopener">Напишите в&nbsp;Telegram</a>.</p>
         </div>
 
         <div class="faq__list reveal" id="faq">
@@ -444,7 +447,7 @@
           <div class="signup__intro">
             <p class="eyebrow">Запись</p>
             <h2 class="h2">Запишитесь на <em>пробный урок</em></h2>
-            <p class="lead">Выберите, кто будет заниматься и в&nbsp;каком формате. Мы подготовим сообщение: отправьте его в&nbsp;Telegram или просто позвоните.</p>
+            <p class="lead">Выберите, кто будет заниматься и в&nbsp;каком формате, и&nbsp;нажмите «Записаться в&nbsp;Telegram». Откроется наш бот: нажмите в&nbsp;нём «Старт», и&nbsp;заявка придёт преподавателю. Или просто позвоните.</p>
           </div>
 
           <div class="signup__form">
@@ -481,14 +484,14 @@
             </div>
 
             <div class="signup__message">
-              <span class="signup__label">Сообщение</span>
+              <span class="signup__label">Ваша заявка</span>
               <p id="signup-message"></p>
             </div>
 
             <div class="signup__buttons">
-              <a class="btn btn--primary" id="signup-tg" href="https://t.me/Eligolc" target="_blank" rel="noopener">
+              <a class="btn btn--primary" id="signup-tg" href="https://t.me/elienglish_requests_bot" target="_blank" rel="noopener">
                 <svg class="btn__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21.5 4.2 2.9 11.4c-.9.4-.9 1.6.1 1.9l4.6 1.4 1.8 5.6c.2.7 1.1.9 1.6.4l2.6-2.4 4.7 3.5c.6.4 1.4.1 1.6-.6l3.2-15.6c.2-.9-.7-1.6-1.6-1.4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m7.6 14.7 10-7.1-7.7 8.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
-                Написать в Telegram
+                Записаться в Telegram
               </a>
               <a class="btn btn--ghost" href="tel:+79777480796">
                 <svg class="btn__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 3.5h2.6l1.5 4.2-2 1.4a12 12 0 0 0 6.2 6.2l1.4-2 4.2 1.5v2.6a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.6 5.7a2 2 0 0 1 2-2.2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
@@ -539,6 +542,6 @@
     </div>
   </footer>
 
-  <script src="assets/js/main.js?v=03eb235c" defer></script>
+  <script src="assets/js/main.js?v=c188b248" defer></script>
 </body>
 </html>

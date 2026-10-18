@@ -1,6 +1,9 @@
 # Единые переводы строк (LF) во всех текстовых файлах
 * text=auto eol=lf
 
+# Командные файлы Windows работают надёжнее с CRLF
+*.cmd text eol=crlf
+
 # Картинки, шрифты и архивы git не трогает
 *.png   binary
 *.jpg   binary

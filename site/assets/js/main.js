@@ -121,7 +121,44 @@
     input.addEventListener('change', function () { state.dur = Number(input.value); renderPrices(); });
   });
 
-  /* ---------- Запись через Telegram ---------- */
+  /* ---------- Запись через бота в Telegram ---------- */
+
+  // Все кнопки записи ведут в бота заявок. Ответы с сайта «вшиты» в ссылку:
+  // бот прочитает их, когда человек нажмёт «Старт». Серверу сайта для этого
+  // ничего не нужно, поэтому запись работает на любом хостинге, даже на GitHub Pages.
+  var BOT = 'elienglish_requests_bot';
+
+  // Формат ссылки (до 64 символов) разбирает bot/lib.php, функция parse_site_payload.
+  function botPayload(o) {
+    var head = '1' + (state.lang === 'pl' ? 'p' : 'e') +
+      ({ adult: 'a', kid: 'k' }[o.who] || 'x') +
+      ({ online: 'o', offline: 'l' }[o.format] || 'x') +
+      ({ 5: '1', 10: '2', 20: '3', 40: '4' }[o.pack] || '0') +
+      (o.dur === 90 ? '9' : '6');
+    var digits = String(o.phone || '').replace(/\D/g, '').slice(0, 15);
+    head += digits.length.toString(16) + digits;
+    var room = Math.floor((64 - head.length) * 3 / 4);
+    var words = String(o.name || '').trim().split(/\s+/);
+    var bytes = new TextEncoder().encode(words.join(' '));
+    while (bytes.length > room && words.length > 1) { // длинное имя: убираем слова с конца
+      words.pop();
+      bytes = new TextEncoder().encode(words.join(' '));
+    }
+    if (bytes.length > room) {
+      var end = room;
+      while (end > 0 && (bytes[end] & 0xC0) === 0x80) end--; // не резать букву пополам
+      bytes = bytes.slice(0, end);
+    }
+    var bin = '';
+    bytes.forEach(function (b) { bin += String.fromCharCode(b); });
+    return head + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function botLink(o) {
+    return 'https://t.me/' + BOT + '?start=' + botPayload(o || {});
+  }
+
+  document.querySelectorAll('[data-bot-link]').forEach(function (a) { a.href = botLink(); });
 
   var signupName = document.getElementById('signup-name');
   var signupMsg = document.getElementById('signup-message');
@@ -136,16 +173,19 @@
 
   function updateSignup() {
     var subj = (document.querySelector('[data-i18n="subjGen"]') || {}).textContent || 'английского';
-    var name = signupName.value.trim().replace(/\s+/g, ' ');
-    var who = checked('who') === 'kid' ? 'ребёнок' : 'взрослый';
-    var fmt = checked('fmt') === 'offline' ? 'лично, с выездом' : 'онлайн';
-    var msg = 'Здравствуйте! ' +
-      (name ? 'Меня зовут ' + name + '. ' : '') +
-      'Хочу записаться на бесплатный пробный урок ' + subj + '. ' +
-      'Кто будет заниматься: ' + who + '. Формат: ' + fmt + '.' +
-      (state.pack ? ' Интересует пакет: ' + state.pack.n + ' уроков по ' + state.pack.dur + ' минут.' : '');
-    signupMsg.textContent = msg;
-    signupTg.href = 'https://t.me/Eligolc?text=' + encodeURIComponent(msg);
+    var who = checked('who');
+    var fmt = checked('fmt');
+    signupMsg.textContent = 'Пробный урок ' + subj + ': ' +
+      (who === 'kid' ? 'ребёнок' : 'взрослый') + ', ' +
+      (fmt === 'offline' ? 'лично, с выездом' : 'онлайн') +
+      (state.pack ? ', пакет ' + state.pack.n + ' уроков по ' + state.pack.dur + ' минут' : '') + '.';
+    signupTg.href = botLink({
+      who: who,
+      format: fmt,
+      pack: state.pack ? state.pack.n : 0,
+      dur: state.pack ? state.pack.dur : 60,
+      name: signupName.value
+    });
 
     if (state.pack) {
       packText.textContent = 'Пакет: ' + state.pack.n + ' уроков по ' + state.pack.dur + ' минут';
@@ -324,6 +364,15 @@
     el.focus({ preventScroll: true });
   }
 
+  // Сайт не смог принять заявку сам (например, на GitHub Pages нет PHP или нет связи).
+  // Не теряем человека: та же заявка с именем и телефоном уходит через бота в Telegram.
+  var trialBot = document.getElementById('trial-bot');
+  var trialFallback = document.getElementById('trial-bot-fallback');
+  function showFallback(payload) {
+    trialFallback.href = botLink({ phone: payload.phone, name: payload.name });
+    showState(stateErr);
+  }
+
   form.querySelector('[data-form-retry]').addEventListener('click', function () {
     stateErr.hidden = true;
     formBody.hidden = false;
@@ -363,16 +412,24 @@
     })
       .then(function (res) { return res.json().catch(function () { return { ok: false }; }); })
       .then(function (data) {
-        if (data && data.ok) { form.reset(); showState(stateOk); return; }
+        if (data && data.ok) {
+          // заявка у нас; по ссылке человек откроет бота, и ему можно будет ответить в Telegram
+          var tgOk = /^[A-Za-z0-9_]{5,32}$/.test(data.bot || '') && /^[A-Za-z0-9]{16}$/.test(data.token || '');
+          trialBot.hidden = !tgOk;
+          if (tgOk) trialBot.href = 'https://t.me/' + data.bot + '?start=T' + data.token;
+          form.reset();
+          showState(stateOk);
+          return;
+        }
         // сервер нашёл ошибку в полях: подсвечиваем их, форму не прячем
         if (data && data.error === 'fields' && Array.isArray(data.fields) && data.fields.length) {
           var messages = { name: 'Проверьте имя', phone: 'Проверьте номер телефона', telegram: 'Ник в формате @username' };
           data.fields.forEach(function (f) { if (form.elements[f]) setError(form.elements[f], messages[f]); });
           return;
         }
-        showState(stateErr);
+        showFallback(payload);
       })
-      .catch(function () { showState(stateErr); })
+      .catch(function () { showFallback(payload); })
       .then(function () {
         clearTimeout(timer);
         form.classList.remove('is-sending');

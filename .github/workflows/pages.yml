@@ -1,0 +1,54 @@
+# Публикация сайта на GitHub Pages: при каждом push в main
+# содержимое папки site/ выкладывается в корень https://<имя>.github.io/<репозиторий>/
+#
+# Один раз включить: Settings → Pages → Build and deployment → Source: GitHub Actions.
+name: Публикация на GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ['site/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Подготовить папку для публикации
+        run: |
+          mkdir _site
+          cp -r site/. _site/
+          # PHP и настройки Apache на GitHub Pages не работают: убираем, чтобы не светить код
+          find _site -name '*.php' -delete
+          rm -f _site/.htaccess
+          # это тестовая копия: поисковикам её не показываем, чтобы не мешала основному сайту
+          sed -i 's/content="index, follow, max-image-preview:large"/content="noindex, nofollow"/' _site/index.html _site/pl/index.html
+          # GitHub Pages не умеет отдавать заголовки безопасности, поэтому та же политика CSP ставится в страницы
+          CSP="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"
+          for f in _site/index.html _site/pl/index.html _site/404.html; do
+            sed -i "s|<meta charset=\"utf-8\">|<meta charset=\"utf-8\">\n  <meta http-equiv=\"Content-Security-Policy\" content=\"$CSP\">|" "$f"
+          done
+          # страница 404 открывается по любому адресу: пути считаем от корня репозитория
+          sed -i "s#=\"/#=\"/${GITHUB_REPOSITORY#*/}/#g" _site/404.html
+          touch _site/.nojekyll
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

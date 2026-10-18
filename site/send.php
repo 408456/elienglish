@@ -7,8 +7,7 @@
 // - ловушки для спам-ботов: скрытое поле и слишком быстрое заполнение;
 // - лимиты: не больше 5 заявок с одного адреса за 10 минут и 60 заявок в час всего;
 // - строгая проверка полей, управляющие символы и ссылки отсекаются;
-// - токен бота хранится вне сайта (eli-config.php уровнем выше) или в config.php,
-//   который закрыт от браузера в .htaccess;
+// - заявка уходит в бот заявок (папка bot рядом с сайтом), токен лежит там же, вне сайта;
 // - ошибки не показываются посетителю, только пишутся в журнал хостинга.
 declare(strict_types=1);
 
@@ -113,52 +112,6 @@ function within_limits(string $ip): bool
     return $ok;
 }
 
-function load_config(): array
-{
-    foreach ([dirname(__DIR__) . '/eli-config.php', __DIR__ . '/config.php'] as $file) {
-        if (is_file($file)) {
-            $config = require $file;
-            if (is_array($config)) {
-                return $config;
-            }
-        }
-    }
-    return [];
-}
-
-function send_telegram(string $token, string $chatId, string $text): bool
-{
-    $url = 'https://api.telegram.org/bot' . $token . '/sendMessage';
-    $body = http_build_query(['chat_id' => $chatId, 'text' => $text, 'disable_web_page_preview' => 'true']);
-
-    if (function_exists('curl_init')) {
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => $body,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => 10,
-            CURLOPT_CONNECTTIMEOUT => 5,
-            CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_SSL_VERIFYHOST => 2,
-        ]);
-        $result = curl_exec($ch);
-        $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        return $result !== false && $status === 200;
-    }
-
-    $context = stream_context_create(['http' => [
-        'method'        => 'POST',
-        'header'        => "Content-Type: application/x-www-form-urlencoded\r\n",
-        'content'       => $body,
-        'timeout'       => 10,
-        'ignore_errors' => true,
-    ]]);
-    $result = @file_get_contents($url, false, $context);
-    return $result !== false && strpos($http_response_header[0] ?? '', ' 200') !== false;
-}
-
 // ---------- Проверки запроса ----------
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
@@ -204,7 +157,7 @@ if (!is_int($elapsed) || $elapsed < MIN_FILL_MS) {
 $name     = clean($data['name'] ?? '', 60);
 $phone    = clean($data['phone'] ?? '', 25);
 $telegram = clean($data['telegram'] ?? '', 40);
-$subject  = ($data['lang'] ?? '') === 'pl' ? 'польский' : 'английский';
+$lang     = ($data['lang'] ?? '') === 'pl' ? 'pl' : 'en';
 
 $errors = [];
 if (str_len($name) < 2 || !preg_match('/^[\p{L}\p{M}][\p{L}\p{M} .\'-]*$/u', $name)) {
@@ -227,27 +180,29 @@ if (!within_limits($_SERVER['REMOTE_ADDR'] ?? 'unknown')) {
     reply(429, ['ok' => false, 'error' => 'too_many']);
 }
 
-// ---------- Отправка ----------
+// ---------- Отправка в бот заявок ----------
+// Код бота лежит в папке bot рядом с папкой сайта. Бот сохраняет заявку
+// и присылает её всем админам с кнопками.
 
-$config = load_config();
-$token = (string) ($config['bot_token'] ?? '');
-$chatId = (string) ($config['chat_id'] ?? '');
-if ($token === '' || $chatId === '' || !preg_match('/^\d+:[\w-]{30,}$/', $token)) {
-    error_log('eli send.php: бот не настроен');
+$lib = dirname(__DIR__) . '/bot/lib.php';
+if (!is_file($lib)) {
+    error_log('eli send.php: нет папки bot рядом с сайтом');
+    reply(503, ['ok' => false, 'error' => 'not_configured']);
+}
+define('ELI_WEB', true);
+require $lib;
+if ((string) cfg()['token'] === '') {
+    error_log('eli send.php: в bot/config.php нет токена');
     reply(503, ['ok' => false, 'error' => 'not_configured']);
 }
 
-date_default_timezone_set('Europe/Moscow');
-$text = "Новая заявка на бесплатный урок\n\n"
-      . "Язык: {$subject}\n"
-      . "Имя: {$name}\n"
-      . "Телефон: {$phone}"
-      . ($telegram !== '' ? "\nTelegram: {$telegram}" : '')
-      . "\n\n" . date('d.m.Y H:i') . ' (МСК)';
-
-if (!send_telegram($token, $chatId, $text)) {
-    error_log('eli send.php: Telegram не принял сообщение');
+$tgUser = preg_match('/^@?([A-Za-z0-9_]{4,32})$/', $telegram, $m) ? $m[1] : '';
+try {
+    $token = site_form_lead(['name' => $name, 'phone' => $phone, 'tg' => $tgUser, 'lang' => $lang]);
+} catch (Throwable $e) {
+    error_log('eli send.php: ' . $e->getMessage());
     reply(502, ['ok' => false]);
 }
 
-reply(200, ['ok' => true]);
+// token: по ссылке t.me/бот?start=T<token> ученик откроет бота, и ему можно будет ответить
+reply(200, ['ok' => true, 'bot' => (string) cfg()['bot_username'], 'token' => $token]);
