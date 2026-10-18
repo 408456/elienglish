@@ -16,7 +16,6 @@
       logo: 'english',
       brandCaps: 'eli english',
       footerNote: 'Частные уроки английского',
-      icon: 'en',
       docTitle: 'eli english: частные уроки английского в Санкт-Петербурге и онлайн',
       desc: 'Частные уроки английского для взрослых и детей. Онлайн или с выездом к вам в Санкт-Петербурге, рядом с метро Электросила. 13 лет практики. Первый урок 30 минут бесплатно.'
     },
@@ -28,7 +27,6 @@
       logo: 'polski',
       brandCaps: 'eli polski',
       footerNote: 'Частные уроки польского',
-      icon: 'pl',
       docTitle: 'eli polski: частные уроки польского в Санкт-Петербурге и онлайн',
       desc: 'Частные уроки польского для взрослых и детей. Онлайн или с выездом к вам в Санкт-Петербурге, рядом с метро Электросила. 13 лет практики. Первый урок 30 минут бесплатно.'
     }
@@ -217,8 +215,6 @@
     document.title = t.docTitle;
     var desc = document.querySelector('meta[name="description"]');
     if (desc) desc.setAttribute('content', t.desc);
-    document.getElementById('favicon').href = 'favicon-' + t.icon + '-32.png';
-    document.getElementById('favicon-lg').href = 'favicon-' + t.icon + '-192.png';
   }
 
   function swapTitle(t, animate) {
