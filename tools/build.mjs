@@ -215,9 +215,11 @@ let en = read('index.html');
 const prices = pricesFromScript();
 const cssV = hash('assets/css/style.css');
 const jsV = hash('assets/js/main.js');
+const headV = hash('assets/js/head.js');
 
 en = en.replace(/assets\/css\/style\.css\?v=[^"]*/, 'assets/css/style.css?v=' + cssV);
 en = en.replace(/assets\/js\/main\.js\?v=[^"]*/, 'assets/js/main.js?v=' + jsV);
+en = en.replace(/assets\/js\/head\.js\?v=[^"]*/, 'assets/js/head.js?v=' + headV);
 const enDescription = (en.match(/<meta name="description" content="([^"]*)"/) || [])[1];
 if (!enDescription) fail('нет meta description');
 en = replaceBlock(en, 'seo', seoTags('en'));
@@ -267,7 +269,7 @@ if (SITE_URL) {
 }
 
 console.log('Готово.');
-console.log('  index.html: версии style.css=' + cssV + ', main.js=' + jsV);
+console.log('  index.html: версии style.css=' + cssV + ', main.js=' + jsV + ', head.js=' + headV);
 console.log('  pl/index.html: собрана');
 console.log('  robots.txt: записан' + (SITE_URL ? ', sitemap.xml: записан' : ''));
 if (!SITE_URL) console.log('  Адрес сайта не задан (SITE_URL в tools/build.mjs): canonical, картинки для соцсетей и sitemap появятся после выкладки.');

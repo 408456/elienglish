@@ -77,7 +77,7 @@
   function buildPricing() {
     pricingEl.innerHTML = PACKS.map(function (p, i) {
       return (
-        '<article class="price reveal' + (p.best ? ' price--best' : '') + '" style="--d:' + (i * 0.07) + 's">' +
+        '<article class="price reveal' + (p.best ? ' price--best' : '') + '">' +
           '<h3 class="price__name">' + p.n + ' уроков</h3>' +
           (p.best ? '<span class="price__badge">Выгоднее всего</span>' : '') +
           '<p class="price__sub">' + p.sub + '</p>' +
@@ -242,6 +242,7 @@
   var stateErr = form.querySelector('.form__state--error');
   var submitBtn = form.querySelector('button[type="submit"]');
   var phoneInput = form.elements.phone;
+  var formShownAt = Date.now(); // сервер отсекает заявки, заполненные быстрее 3 секунд
 
   function formatPhone(value) {
     var digits = value.replace(/\D/g, '');
@@ -278,7 +279,9 @@
     var tg = form.elements.telegram;
     var ok = true;
 
-    if (name.value.trim().length < 2) { setError(name, 'Напишите, как к вам обращаться'); ok = false; }
+    var nameValue = name.value.trim();
+    if (nameValue.length < 2) { setError(name, 'Напишите, как к вам обращаться'); ok = false; }
+    else if (!/^[\p{L}\p{M}][\p{L}\p{M} .'-]*$/u.test(nameValue)) { setError(name, 'Имя только буквами'); ok = false; }
     else setError(name, '');
 
     if (phoneInput.value.replace(/\D/g, '').length < 10) { setError(phoneInput, 'Укажите номер телефона полностью'); ok = false; }
@@ -341,7 +344,8 @@
       phone: phoneInput.value.trim(),
       telegram: form.elements.telegram.value.trim(),
       website: form.elements.website.value,
-      lang: state.lang
+      lang: state.lang,
+      elapsed: Date.now() - formShownAt
     };
 
     form.classList.add('is-sending');
@@ -359,8 +363,14 @@
     })
       .then(function (res) { return res.json().catch(function () { return { ok: false }; }); })
       .then(function (data) {
-        if (data && data.ok) { form.reset(); showState(stateOk); }
-        else showState(stateErr);
+        if (data && data.ok) { form.reset(); showState(stateOk); return; }
+        // сервер нашёл ошибку в полях: подсвечиваем их, форму не прячем
+        if (data && data.error === 'fields' && Array.isArray(data.fields) && data.fields.length) {
+          var messages = { name: 'Проверьте имя', phone: 'Проверьте номер телефона', telegram: 'Ник в формате @username' };
+          data.fields.forEach(function (f) { if (form.elements[f]) setError(form.elements[f], messages[f]); });
+          return;
+        }
+        showState(stateErr);
       })
       .catch(function () { showState(stateErr); })
       .then(function () {

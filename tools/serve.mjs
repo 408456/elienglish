@@ -1,8 +1,11 @@
 // Локальный просмотр сайта: отдаёт папку site/ и подменяет send.php,
 // чтобы форма показывала успешную отправку без хостинга.
+// Работает только на этом компьютере (127.0.0.1) и повторяет правила
+// безопасности из site/.htaccess: те же заголовки и те же закрытые файлы.
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { extname, join, normalize, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../site/', import.meta.url));
@@ -14,48 +17,75 @@ const types = {
   '.svg': 'image/svg+xml',
   '.webp': 'image/webp',
   '.png': 'image/png',
+  '.jpg': 'image/jpeg',
   '.ico': 'image/x-icon',
   '.txt': 'text/plain; charset=utf-8',
   '.xml': 'application/xml',
 };
 
-createServer(async (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
+// Заголовки и запреты читаем из .htaccess, чтобы локально было как на хостинге.
+const htaccess = readFileSync(join(root, '.htaccess'), 'utf8');
+const securityHeaders = {};
+for (const [, name, value] of htaccess.matchAll(/^\s*Header always set (\S+) "([^"]*)"/gm)) {
+  if (name === 'Strict-Transport-Security') continue; // только для HTTPS
+  securityHeaders[name] = name === 'Content-Security-Policy'
+    ? value.replace(/;\s*upgrade-insecure-requests/, '') // локально сайт открыт по http
+    : value;
+}
+const deniedFiles = [...htaccess.matchAll(/<FilesMatch "([^"]+)">\s*Require all denied/g)].map((m) => new RegExp(m[1]));
 
-  if (url.pathname === '/send.php') {
-    if (req.method !== 'POST') { res.writeHead(405).end(); return; }
-    let body = '';
-    for await (const chunk of req) body += chunk;
-    console.log('[send.php mock] заявка:', body);
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ ok: true, mock: true }));
+function send(res, status, headers, body) {
+  res.writeHead(status, { ...securityHeaders, ...headers });
+  res.end(body);
+}
+
+createServer(async (req, res) => {
+  let url;
+  let path;
+  try {
+    url = new URL(req.url, 'http://localhost');
+    path = normalize(decodeURIComponent(url.pathname)).replace(/^([/\\])+/, '');
+  } catch {
+    send(res, 400, { 'Content-Type': 'text/plain; charset=utf-8' }, 'Неверный адрес');
     return;
   }
 
-  let path = normalize(decodeURIComponent(url.pathname)).replace(/^([/\\])+/, '');
+  if (url.pathname === '/send.php') {
+    if (req.method !== 'POST') { send(res, 405, { Allow: 'POST' }, ''); return; }
+    let body = '';
+    for await (const chunk of req) {
+      body += chunk;
+      if (body.length > 4096) { send(res, 413, {}, ''); return; }
+    }
+    console.log('[send.php mock] заявка:', body);
+    send(res, 200, { 'Content-Type': 'application/json; charset=utf-8' }, JSON.stringify({ ok: true, mock: true }));
+    return;
+  }
+
   if (path === '' || path.endsWith('/') || path.endsWith('\\')) path += 'index.html';
   const file = join(root, path);
-  if (!file.startsWith(root)) { res.writeHead(403).end(); return; }
+  if (!file.startsWith(root) || path.split(/[/\\]/).some((part) => deniedFiles.some((re) => re.test(part))) || deniedFiles.some((re) => re.test(basename(file)))) {
+    send(res, 403, { 'Content-Type': 'text/plain; charset=utf-8' }, 'Доступ запрещён');
+    return;
+  }
 
   try {
     const info = await stat(file);
     if (info.isDirectory()) {
       // /pl -> /pl/, как на хостинге
-      res.writeHead(301, { Location: url.pathname + '/' + url.search }).end();
+      send(res, 301, { Location: url.pathname + '/' + url.search }, '');
       return;
     }
     const data = await readFile(file);
-    res.writeHead(200, {
+    send(res, 200, {
       'Content-Type': types[extname(file).toLowerCase()] || 'application/octet-stream',
       'Cache-Control': 'no-cache',
-    });
-    res.end(data);
+    }, data);
   } catch {
     try {
-      const page = await readFile(join(root, '404.html'));
-      res.writeHead(404, { 'Content-Type': types['.html'] }).end(page);
+      send(res, 404, { 'Content-Type': types['.html'] }, await readFile(join(root, '404.html')));
     } catch {
-      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end('Не найдено');
+      send(res, 404, { 'Content-Type': 'text/plain; charset=utf-8' }, 'Не найдено');
     }
   }
-}).listen(port, () => console.log(`elienglish: http://localhost:${port}`));
+}).listen(port, '127.0.0.1', () => console.log(`elienglish: http://localhost:${port}`));

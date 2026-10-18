@@ -945,6 +945,13 @@ body.menu-open { overflow: hidden; }
   transition-delay: var(--d, 0s);
 }
 .js .reveal.is-in { opacity: 1; transform: none; }
+/* очерёдность появления карточек (без встроенных стилей, чтобы работал CSP) */
+.facts__item:nth-child(2),
+.audience:nth-child(2) { --d: .08s; }
+.facts__item:nth-child(3) { --d: .16s; }
+.price:nth-child(2) { --d: .07s; }
+.price:nth-child(3) { --d: .14s; }
+.price:nth-child(4) { --d: .21s; }
 
 .js .hero__eyebrow,
 .js .hero__lead,
@@ -1084,3 +1091,9 @@ body.menu-open { overflow: hidden; }
   .js .hero__title .line > span { transform: none; }
   .js .draw { stroke-dashoffset: 0; }
 }
+
+/* ---------- Страница 404 ---------- */
+.notfound { min-height: 100svh; display: grid; place-items: center; text-align: center; padding: 40px var(--gutter); }
+.notfound .h2 { margin-bottom: 16px; }
+.notfound .lead { margin: 0 auto 32px; }
+.notfound__links { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }

@@ -31,10 +31,15 @@ Options -Indexes
 </IfModule>
 
 # Служебные файлы не открываются из браузера
-<FilesMatch "^(config|config\.example)\.php$">
+<FilesMatch "^(config|config\.example|eli-config)\.php$">
   Require all denied
 </FilesMatch>
+# скрытые файлы (.htaccess, .git, .env и т.п.)
 <FilesMatch "^\.">
+  Require all denied
+</FilesMatch>
+# резервные копии, журналы, архивы, исходники инструментов
+<FilesMatch "\.(bak|old|orig|save|swp|tmp|sql|log|ini|conf|sh|md|zip|tar|gz|7z|rar|mjs|json|lock)$">
   Require all denied
 </FilesMatch>
 
@@ -57,8 +62,21 @@ Options -Indexes
   ExpiresByType image/jpeg "access plus 1 month"
 </IfModule>
 
+# Защитные заголовки
 <IfModule mod_headers.c>
+  # Что странице разрешено загружать и откуда. Только свой сайт и шрифты Google.
+  # Если подключите Яндекс Метрику или другой внешний сервис, его адрес нужно добавить сюда.
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"
+  # Браузер ходит на сайт только по HTTPS (включается после настройки SSL на хостинге)
+  Header always set Strict-Transport-Security "max-age=31536000"
+  # Сайт нельзя встроить в чужую страницу (защита от подмены кликов)
+  Header always set X-Frame-Options "DENY"
   Header always set X-Content-Type-Options "nosniff"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
-  Header always set X-Frame-Options "SAMEORIGIN"
+  # Странице не нужны камера, микрофон, геолокация и платежи
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()"
+  Header always set Cross-Origin-Opener-Policy "same-origin"
+  # Не сообщать версию сервера и PHP
+  Header always unset X-Powered-By
+  Header unset X-Powered-By
 </IfModule>

@@ -26,12 +26,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,500;1,600&family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400..800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../assets/css/style.css?v=61738ecb">
-  <script>
-    document.documentElement.classList.add('js');
-    // старые ссылки вида ?lang=pl ведут на отдельную польскую страницу
-    if (/[?&]lang=pl(&|$)/.test(location.search) && document.documentElement.dataset.lang !== 'pl') location.replace('pl/' + location.hash);
-  </script>
+  <link rel="stylesheet" href="../assets/css/style.css?v=5c93f1b6">
+  <script src="../assets/js/head.js?v=ccd3cd6c"></script>
   <!-- schema:start: разметка для поисковиков, заполняет tools/build.mjs -->
   <script type="application/ld+json">
 {
@@ -224,8 +220,8 @@
 
         <ul class="facts" aria-label="Коротко о нас">
           <li class="facts__item reveal"><span class="facts__num"><span data-count="13">13</span></span><span class="facts__label">лет практики</span></li>
-          <li class="facts__item reveal" style="--d:.08s"><span class="facts__num"><span data-count="100">100</span>+</span><span class="facts__label">довольных учеников</span></li>
-          <li class="facts__item reveal" style="--d:.16s"><span class="facts__num">1:1</span><span class="facts__label">индивидуальный подход</span></li>
+          <li class="facts__item reveal"><span class="facts__num"><span data-count="100">100</span>+</span><span class="facts__label">довольных учеников</span></li>
+          <li class="facts__item reveal"><span class="facts__num">1:1</span><span class="facts__label">индивидуальный подход</span></li>
         </ul>
       </div>
     </section>
@@ -249,7 +245,7 @@
             <div class="form__body">
               <label class="field">
                 <span class="field__label">Имя</span>
-                <input class="field__input" type="text" name="name" autocomplete="given-name" placeholder="Как к вам обращаться" required maxlength="80">
+                <input class="field__input" type="text" name="name" autocomplete="given-name" placeholder="Как к вам обращаться" required maxlength="60">
                 <span class="field__error" aria-live="polite"></span>
               </label>
               <label class="field">
@@ -353,7 +349,7 @@
             <h3 class="h3">Взрослым</h3>
             <p>Для работы, переезда, путешествий или для себя. Начать можно с&nbsp;любого уровня, даже с&nbsp;нуля.</p>
           </article>
-          <article class="audience reveal" style="--d:.1s">
+          <article class="audience reveal">
             <div class="audience__img">
               <img src="../assets/img/kids-1200.webp" srcset="../assets/img/kids-640.webp 640w, ../assets/img/kids-1200.webp 1200w" sizes="(max-width: 860px) 92vw, 580px" width="1200" height="800" alt="Дети и подростки" loading="lazy" decoding="async">
             </div>
@@ -544,6 +540,6 @@
     </div>
   </footer>
 
-  <script src="../assets/js/main.js?v=3c65cfa6" defer></script>
+  <script src="../assets/js/main.js?v=03eb235c" defer></script>
 </body>
 </html>

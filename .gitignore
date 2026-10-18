@@ -6,6 +6,8 @@
 
 # Секреты: токен Telegram-бота и любые ключи
 site/config.php
+eli-config.php
+.eli-data/
 .env
 .env.*
 *.pem
