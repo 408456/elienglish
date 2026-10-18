@@ -5,11 +5,9 @@
 # -----------------------------------------------------------------
 
 # Секреты: токен Telegram-бота и любые ключи
-site/config.php
-bot/config.php
-bot/data/
-eli-config.php
-.eli-data/
+# готовый к вставке код бота с токеном и секреты Google-версии
+google/*.local.gs
+google/secrets.local.json
 .env
 .env.*
 *.pem

@@ -38,7 +38,7 @@ jobs:
           # это тестовая копия: поисковикам её не показываем, чтобы не мешала основному сайту
           sed -i 's/content="index, follow, max-image-preview:large"/content="noindex, nofollow"/' _site/index.html _site/pl/index.html
           # GitHub Pages не умеет отдавать заголовки безопасности, поэтому та же политика CSP ставится в страницы
-          CSP="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"
+          CSP="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; connect-src 'self' https://script.google.com https://script.googleusercontent.com; form-action 'self'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"
           for f in _site/index.html _site/pl/index.html _site/404.html; do
             sed -i "s|<meta charset=\"utf-8\">|<meta charset=\"utf-8\">\n  <meta http-equiv=\"Content-Security-Policy\" content=\"$CSP\">|" "$f"
           done

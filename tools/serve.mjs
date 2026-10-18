@@ -1,5 +1,4 @@
-// Локальный просмотр сайта: отдаёт папку site/ и подменяет send.php,
-// чтобы форма показывала успешную отправку без хостинга.
+// Локальный просмотр сайта: отдаёт папку site/.
 // Работает только на этом компьютере (127.0.0.1) и повторяет правила
 // безопасности из site/.htaccess: те же заголовки и те же закрытые файлы.
 import { createServer } from 'node:http';
@@ -47,18 +46,6 @@ createServer(async (req, res) => {
     path = normalize(decodeURIComponent(url.pathname)).replace(/^([/\\])+/, '');
   } catch {
     send(res, 400, { 'Content-Type': 'text/plain; charset=utf-8' }, 'Неверный адрес');
-    return;
-  }
-
-  if (url.pathname === '/send.php') {
-    if (req.method !== 'POST') { send(res, 405, { Allow: 'POST' }, ''); return; }
-    let body = '';
-    for await (const chunk of req) {
-      body += chunk;
-      if (body.length > 4096) { send(res, 413, {}, ''); return; }
-    }
-    console.log('[send.php mock] заявка:', body);
-    send(res, 200, { 'Content-Type': 'application/json; charset=utf-8' }, JSON.stringify({ ok: true, mock: true }));
     return;
   }
 

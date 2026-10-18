@@ -254,8 +254,7 @@ writeFileSync(file('pl/index.html'), pl);
 
 const robots = [
   'User-agent: *',
-  'Disallow: /send.php',
-  'Disallow: /config.example.php',
+  'Allow: /',
   SITE_URL ? '\nSitemap: ' + SITE_URL + '/sitemap.xml' : ''
 ].join('\n').trim() + '\n';
 writeFileSync(file('robots.txt'), robots);

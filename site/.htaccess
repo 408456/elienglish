@@ -66,7 +66,7 @@ Options -Indexes
 <IfModule mod_headers.c>
   # Что странице разрешено загружать и откуда. Только свой сайт и шрифты Google.
   # Если подключите Яндекс Метрику или другой внешний сервис, его адрес нужно добавить сюда.
-  Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; connect-src 'self' https://script.google.com https://script.googleusercontent.com; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"
   # Браузер ходит на сайт только по HTTPS (включается после настройки SSL на хостинге)
   Header always set Strict-Transport-Security "max-age=31536000"
   # Сайт нельзя встроить в чужую страницу (защита от подмены кликов)
