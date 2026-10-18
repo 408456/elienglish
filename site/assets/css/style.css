@@ -27,12 +27,12 @@
   --header: 72px;
 }
 
-/* польский: глубокий тёмно-синий акцент */
+/* польский: глубокий тёмный сине-фиолетовый акцент */
 html[data-lang="pl"] {
-  --accent: #113A8F;
-  --accent-ink: #0B2A6B;
-  --accent-soft: #E7ECF7;
-  --accent-tint: #C9D8F5;
+  --accent: #272540;
+  --accent-ink: #1A1930;
+  --accent-soft: #E9E8F1;
+  --accent-tint: #C8C5E2;
 }
 
 *,
