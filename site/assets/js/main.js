@@ -12,7 +12,7 @@
 
   // Куда форма «Первый урок бесплатно» отправляет заявку: веб-приложение Google Apps Script
   // (google/bot.gs). Оно пишет заявку в Google Таблицу и присылает её в бота заявок.
-  var LEADS_URL = '';
+  var LEADS_URL = 'https://script.google.com/macros/s/AKfycbzl_Q29J0lezSbkuDxqMutdh8GyEBBaAh3a4npjuFhYISAN1e-gjT02rum4dl1PrIVuVQ/exec';
   // Личный Telegram преподавателя: сюда ведут «Написать в Telegram» и нижний блок записи.
   var PERSONAL_TG = 'Eligolc';
 
