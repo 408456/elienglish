@@ -1,0 +1,9 @@
+# Токен бота: хранится только на компьютере и на хостинге
+site/config.php
+
+# Служебные файлы системы и редакторов
+Thumbs.db
+desktop.ini
+.DS_Store
+*.log
+node_modules/
