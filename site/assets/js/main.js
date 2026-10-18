@@ -9,7 +9,12 @@
 
   // Тексты страниц лежат в index.html, польская страница собирается командой
   // node tools/build.mjs. Здесь только цены и логика.
-  var SITE_ROOT = new URL('../../', (document.currentScript && document.currentScript.src) || location.href);
+
+  // Куда форма «Первый урок бесплатно» отправляет заявку: веб-приложение Google Apps Script
+  // (google/bot.gs). Оно пишет заявку в Google Таблицу и присылает её в бота заявок.
+  var LEADS_URL = '';
+  // Личный Telegram преподавателя: сюда ведут «Написать в Telegram» и нижний блок записи.
+  var PERSONAL_TG = 'Eligolc';
 
   // Цена одного урока онлайн. Лично: +500 ₽ (видно только в ценах).
   var BASE = { en: { 60: 1500, 90: 2000 }, pl: { 60: 2000, 90: 2500 } };
@@ -121,44 +126,38 @@
     input.addEventListener('change', function () { state.dur = Number(input.value); renderPrices(); });
   });
 
-  /* ---------- Запись через бота в Telegram ---------- */
+  /* ---------- Промокод и реферальная ссылка ---------- */
 
-  // Все кнопки записи ведут в бота заявок. Ответы с сайта «вшиты» в ссылку:
-  // бот прочитает их, когда человек нажмёт «Старт». Серверу сайта для этого
-  // ничего не нужно, поэтому запись работает на любом хостинге, даже на GitHub Pages.
-  var BOT = 'elienglish_requests_bot';
-
-  // Формат ссылки (до 64 символов) разбирает bot/lib.php, функция parse_site_payload.
-  function botPayload(o) {
-    var head = '1' + (state.lang === 'pl' ? 'p' : 'e') +
-      ({ adult: 'a', kid: 'k' }[o.who] || 'x') +
-      ({ online: 'o', offline: 'l' }[o.format] || 'x') +
-      ({ 5: '1', 10: '2', 20: '3', 40: '4' }[o.pack] || '0') +
-      (o.dur === 90 ? '9' : '6');
-    var digits = String(o.phone || '').replace(/\D/g, '').slice(0, 15);
-    head += digits.length.toString(16) + digits;
-    var room = Math.floor((64 - head.length) * 3 / 4);
-    var words = String(o.name || '').trim().split(/\s+/);
-    var bytes = new TextEncoder().encode(words.join(' '));
-    while (bytes.length > room && words.length > 1) { // длинное имя: убираем слова с конца
-      words.pop();
-      bytes = new TextEncoder().encode(words.join(' '));
+  // ?ref=код: человек пришёл по ссылке ученика. Запоминаем на 30 дней и убираем из адреса.
+  // ?promo=КОД: промокод сразу вписывается в форму.
+  var REF_KEY = 'eli-ref';
+  var params = new URLSearchParams(location.search);
+  var refCode = '';
+  var promoFromLink = '';
+  (function () {
+    var ref = (params.get('ref') || '').toLowerCase();
+    var promo = (params.get('promo') || '').toUpperCase();
+    try {
+      if (/^[a-z0-9]{4,12}$/.test(ref)) localStorage.setItem(REF_KEY, JSON.stringify({ code: ref, at: Date.now() }));
+      var saved = JSON.parse(localStorage.getItem(REF_KEY) || 'null');
+      if (saved && Date.now() - saved.at < 30 * 864e5 && /^[a-z0-9]{4,12}$/.test(saved.code)) refCode = saved.code;
+    } catch (e) {
+      if (/^[a-z0-9]{4,12}$/.test(ref)) refCode = ref;
     }
-    if (bytes.length > room) {
-      var end = room;
-      while (end > 0 && (bytes[end] & 0xC0) === 0x80) end--; // не резать букву пополам
-      bytes = bytes.slice(0, end);
+    if (/^[A-Z0-9_-]{2,20}$/.test(promo)) promoFromLink = promo;
+    if (params.has('ref') || params.has('promo')) {
+      params.delete('ref');
+      params.delete('promo');
+      var qs = params.toString();
+      try { history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash); } catch (e) {}
     }
-    var bin = '';
-    bytes.forEach(function (b) { bin += String.fromCharCode(b); });
-    return head + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  }
+  })();
 
-  function botLink(o) {
-    return 'https://t.me/' + BOT + '?start=' + botPayload(o || {});
-  }
+  /* ---------- Нижний блок: сообщение преподавателю в Telegram ---------- */
 
-  document.querySelectorAll('[data-bot-link]').forEach(function (a) { a.href = botLink(); });
+  function tgLink(text) {
+    return 'https://t.me/' + PERSONAL_TG + (text ? '?text=' + encodeURIComponent(text) : '');
+  }
 
   var signupName = document.getElementById('signup-name');
   var signupMsg = document.getElementById('signup-message');
@@ -173,19 +172,17 @@
 
   function updateSignup() {
     var subj = (document.querySelector('[data-i18n="subjGen"]') || {}).textContent || 'английского';
-    var who = checked('who');
-    var fmt = checked('fmt');
-    signupMsg.textContent = 'Пробный урок ' + subj + ': ' +
-      (who === 'kid' ? 'ребёнок' : 'взрослый') + ', ' +
-      (fmt === 'offline' ? 'лично, с выездом' : 'онлайн') +
-      (state.pack ? ', пакет ' + state.pack.n + ' уроков по ' + state.pack.dur + ' минут' : '') + '.';
-    signupTg.href = botLink({
-      who: who,
-      format: fmt,
-      pack: state.pack ? state.pack.n : 0,
-      dur: state.pack ? state.pack.dur : 60,
-      name: signupName.value
-    });
+    var name = signupName.value.trim().replace(/\s+/g, ' ');
+    var who = checked('who') === 'kid' ? 'ребёнок' : 'взрослый';
+    var fmt = checked('fmt') === 'offline' ? 'лично, с выездом' : 'онлайн';
+    var msg = 'Здравствуйте! ' +
+      (name ? 'Меня зовут ' + name + '. ' : '') +
+      'Хочу записаться на бесплатный пробный урок ' + subj + '. ' +
+      'Кто будет заниматься: ' + who + '. Формат: ' + fmt + '.' +
+      (state.pack ? ' Интересует пакет: ' + state.pack.n + ' уроков по ' + state.pack.dur + ' минут.' : '') +
+      (refCode ? ' Код приглашения: ' + refCode + '.' : '');
+    signupMsg.textContent = msg;
+    signupTg.href = tgLink(msg);
 
     if (state.pack) {
       packText.textContent = 'Пакет: ' + state.pack.n + ' уроков по ' + state.pack.dur + ' минут';
@@ -327,6 +324,10 @@
     if (phoneInput.value.replace(/\D/g, '').length < 10) { setError(phoneInput, 'Укажите номер телефона полностью'); ok = false; }
     else setError(phoneInput, '');
 
+    var promo = form.elements.promo;
+    if (promo.value.trim() && !/^[A-Za-z0-9_-]{2,20}$/.test(promo.value.trim())) { setError(promo, 'Только латинские буквы и цифры'); ok = false; }
+    else setError(promo, '');
+
     var tgValue = tg.value.trim();
     if (tgValue && !/^(@?[A-Za-z0-9_]{4,32}|\+?[\d\s()-]{10,20})$/.test(tgValue)) {
       setError(tg, 'Ник в формате @username'); ok = false;
@@ -364,12 +365,13 @@
     el.focus({ preventScroll: true });
   }
 
-  // Сайт не смог принять заявку сам (например, на GitHub Pages нет PHP или нет связи).
-  // Не теряем человека: та же заявка с именем и телефоном уходит через бота в Telegram.
-  var trialBot = document.getElementById('trial-bot');
-  var trialFallback = document.getElementById('trial-bot-fallback');
-  function showFallback(payload) {
-    trialFallback.href = botLink({ phone: payload.phone, name: payload.name });
+  // Заявка не ушла (нет связи или сервис недоступен). Не теряем человека:
+  // предлагаем отправить ту же заявку преподавателю в Telegram готовым сообщением.
+  var trialFallback = document.getElementById('trial-fallback');
+  function showFallback(p) {
+    var subj = (document.querySelector('[data-i18n="subjGen"]') || {}).textContent || 'английского';
+    trialFallback.href = tgLink('Здравствуйте! Меня зовут ' + p.name + '. Хочу записаться на бесплатный пробный урок ' + subj +
+      '. Мой телефон: ' + p.phone + '.' + (p.promo ? ' Промокод: ' + p.promo + '.' : '') + (p.ref ? ' Код приглашения: ' + p.ref + '.' : ''));
     showState(stateErr);
   }
 
@@ -378,6 +380,8 @@
     formBody.hidden = false;
     submitBtn.focus();
   });
+
+  if (promoFromLink && form.elements.promo) form.elements.promo.value = promoFromLink;
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
@@ -389,41 +393,42 @@
     }
 
     var payload = {
-      name: form.elements.name.value.trim(),
+      kind: 'lead',
+      name: form.elements.name.value.trim().replace(/\s+/g, ' '),
       phone: phoneInput.value.trim(),
       telegram: form.elements.telegram.value.trim(),
+      promo: form.elements.promo.value.trim().toUpperCase(),
+      ref: refCode,
       website: form.elements.website.value,
       lang: state.lang,
       elapsed: Date.now() - formShownAt
     };
+
+    if (!LEADS_URL) { showFallback(payload); return; }
 
     form.classList.add('is-sending');
     submitBtn.disabled = true;
     submitBtn.querySelector('.btn__label').textContent = 'Отправляем…';
 
     var controller = 'AbortController' in window ? new AbortController() : null;
-    var timer = setTimeout(function () { if (controller) controller.abort(); }, 12000);
+    var timer = setTimeout(function () { if (controller) controller.abort(); }, 15000);
 
-    fetch(new URL('send.php', SITE_ROOT), {
+    // Простой запрос без своих заголовков: так Google принимает его с любого сайта.
+    fetch(LEADS_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
       signal: controller ? controller.signal : undefined
     })
       .then(function (res) { return res.json().catch(function () { return { ok: false }; }); })
       .then(function (data) {
         if (data && data.ok) {
-          // заявка у нас; по ссылке человек откроет бота, и ему можно будет ответить в Telegram
-          var tgOk = /^[A-Za-z0-9_]{5,32}$/.test(data.bot || '') && /^[A-Za-z0-9]{16}$/.test(data.token || '');
-          trialBot.hidden = !tgOk;
-          if (tgOk) trialBot.href = 'https://t.me/' + data.bot + '?start=T' + data.token;
           form.reset();
           showState(stateOk);
           return;
         }
-        // сервер нашёл ошибку в полях: подсвечиваем их, форму не прячем
+        // сервис нашёл ошибку в полях: подсвечиваем их, форму не прячем
         if (data && data.error === 'fields' && Array.isArray(data.fields) && data.fields.length) {
-          var messages = { name: 'Проверьте имя', phone: 'Проверьте номер телефона', telegram: 'Ник в формате @username' };
+          var messages = { name: 'Проверьте имя', phone: 'Проверьте номер телефона', telegram: 'Ник в формате @username', promo: 'Такого промокода нет' };
           data.fields.forEach(function (f) { if (form.elements[f]) setError(form.elements[f], messages[f]); });
           return;
         }

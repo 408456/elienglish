@@ -1,3 +1,2 @@
 User-agent: *
-Disallow: /send.php
-Disallow: /config.example.php
+Allow: /
