@@ -39,7 +39,11 @@ createServer(async (req, res) => {
 
   try {
     const info = await stat(file);
-    if (!info.isFile()) throw new Error('not a file');
+    if (info.isDirectory()) {
+      // /pl -> /pl/, как на хостинге
+      res.writeHead(301, { Location: url.pathname + '/' + url.search }).end();
+      return;
+    }
     const data = await readFile(file);
     res.writeHead(200, {
       'Content-Type': types[extname(file).toLowerCase()] || 'application/octet-stream',
@@ -47,6 +51,11 @@ createServer(async (req, res) => {
     });
     res.end(data);
   } catch {
-    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end('Не найдено');
+    try {
+      const page = await readFile(join(root, '404.html'));
+      res.writeHead(404, { 'Content-Type': types['.html'] }).end(page);
+    } catch {
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }).end('Не найдено');
+    }
   }
 }).listen(port, () => console.log(`elienglish: http://localhost:${port}`));

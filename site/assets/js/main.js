@@ -7,30 +7,9 @@
 
   /* ---------- Данные ---------- */
 
-  var TEXT = {
-    en: {
-      eyebrow: 'Частные уроки английского',
-      title: ['Английский', '<em>раз и навсегда</em>'],
-      footerSlogan: 'Английский <em>раз и&nbsp;навсегда</em>.',
-      subjGen: 'английского',
-      logo: 'english',
-      brandCaps: 'eli english',
-      footerNote: 'Частные уроки английского',
-      docTitle: 'eli english: частные уроки английского в Санкт-Петербурге и онлайн',
-      desc: 'Частные уроки английского для взрослых и детей. Онлайн или с выездом к вам в Санкт-Петербурге, рядом с метро Электросила. 13 лет практики. Первый урок 30 минут бесплатно.'
-    },
-    pl: {
-      eyebrow: 'Частные уроки польского',
-      title: ['Польский', '<em>без границ</em>'],
-      footerSlogan: 'Польский <em>без&nbsp;границ</em>.',
-      subjGen: 'польского',
-      logo: 'polski',
-      brandCaps: 'eli polski',
-      footerNote: 'Частные уроки польского',
-      docTitle: 'eli polski: частные уроки польского в Санкт-Петербурге и онлайн',
-      desc: 'Частные уроки польского для взрослых и детей. Онлайн или с выездом к вам в Санкт-Петербурге, рядом с метро Электросила. 13 лет практики. Первый урок 30 минут бесплатно.'
-    }
-  };
+  // Тексты страниц лежат в index.html, польская страница собирается командой
+  // node tools/build.mjs. Здесь только цены и логика.
+  var SITE_ROOT = new URL('../../', (document.currentScript && document.currentScript.src) || location.href);
 
   // Цена одного урока онлайн. Лично: +500 ₽ (видно только в ценах).
   var BASE = { en: { 60: 1500, 90: 2000 }, pl: { 60: 2000, 90: 2500 } };
@@ -156,13 +135,13 @@
   }
 
   function updateSignup() {
-    var t = TEXT[state.lang];
+    var subj = (document.querySelector('[data-i18n="subjGen"]') || {}).textContent || 'английского';
     var name = signupName.value.trim().replace(/\s+/g, ' ');
     var who = checked('who') === 'kid' ? 'ребёнок' : 'взрослый';
     var fmt = checked('fmt') === 'offline' ? 'лично, с выездом' : 'онлайн';
     var msg = 'Здравствуйте! ' +
       (name ? 'Меня зовут ' + name + '. ' : '') +
-      'Хочу записаться на бесплатный пробный урок ' + t.subjGen + '. ' +
+      'Хочу записаться на бесплатный пробный урок ' + subj + '. ' +
       'Кто будет заниматься: ' + who + '. Формат: ' + fmt + '.' +
       (state.pack ? ' Интересует пакет: ' + state.pack.n + ' уроков по ' + state.pack.dur + ' минут.' : '');
     signupMsg.textContent = msg;
@@ -196,84 +175,20 @@
 
   /* ---------- Язык занятий ---------- */
 
-  var langButtons = document.querySelectorAll('[data-lang-btn]');
-  var heroTitle = document.getElementById('hero-title');
-
-  function titleHtml(lines) {
-    return lines.map(function (l) { return '<span class="line"><span>' + l + '</span></span>'; }).join('');
-  }
-
-  function setTexts(t) {
-    document.querySelectorAll('[data-i18n]').forEach(function (el) {
-      var key = el.dataset.i18n;
-      if (t[key] != null) el.textContent = t[key];
-    });
-    document.querySelectorAll('[data-i18n-html]').forEach(function (el) {
-      var key = el.dataset.i18nHtml;
-      if (t[key] != null) el.innerHTML = t[key];
-    });
-    document.title = t.docTitle;
-    var desc = document.querySelector('meta[name="description"]');
-    if (desc) desc.setAttribute('content', t.desc);
-  }
-
-  function swapTitle(t, animate) {
-    if (!animate || reduceMotion || !root.classList.contains('is-loaded')) {
-      heroTitle.innerHTML = titleHtml(t.title);
-      return;
-    }
-    heroTitle.classList.add('is-out');
-    setTimeout(function () {
-      heroTitle.innerHTML = titleHtml(t.title);
-      heroTitle.classList.remove('is-out');
-      heroTitle.classList.add('is-in-start');
-      void heroTitle.offsetWidth;
-      heroTitle.classList.remove('is-in-start');
-    }, 380);
-  }
-
-  function applyLang(lang, animate) {
-    state.lang = lang;
-    root.dataset.lang = lang;
-    langButtons.forEach(function (b) {
-      b.setAttribute('aria-pressed', String(b.dataset.langBtn === lang));
-    });
-
-    var t = TEXT[lang];
-    swapTitle(t, animate);
-
-    if (animate && !reduceMotion) {
-      var nodes = document.querySelectorAll('[data-i18n], [data-i18n-html]');
-      nodes.forEach(function (el) {
-        el.classList.remove('swap');
-        void el.offsetWidth;
-        el.classList.add('swap');
-      });
-      setTimeout(function () { setTexts(t); updateSignup(); }, 170);
-      setTimeout(function () { nodes.forEach(function (el) { el.classList.remove('swap'); }); }, 600);
-    } else {
-      setTexts(t);
-    }
-
-    renderPrices();
-    updateSignup();
-
-    try { localStorage.setItem('eli-lang', lang); } catch (e) {}
-    try {
-      var url = new URL(location.href);
-      if (lang === 'pl') url.searchParams.set('lang', 'pl');
-      else url.searchParams.delete('lang');
-      history.replaceState(null, '', url.pathname + url.search + url.hash);
-    } catch (e) {}
-  }
-
-  langButtons.forEach(function (b) {
-    b.addEventListener('click', function () {
-      if (b.dataset.langBtn !== state.lang) applyLang(b.dataset.langBtn, true);
+  // Английский и польский это две страницы (/ и /pl/), чтобы поисковики видели обе.
+  // При клике бегунок и цвет плавно переезжают, потом открывается другая страница.
+  document.querySelectorAll('[data-lang-link]').forEach(function (link) {
+    link.addEventListener('click', function (e) {
+      var target = link.dataset.langLink;
+      if (target === state.lang || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+      e.preventDefault();
+      root.dataset.lang = target;
+      setTimeout(function () { location.href = link.href; }, reduceMotion ? 0 : 260);
     });
   });
 
-  applyLang(state.lang, false);
+  renderPrices();
+  updateSignup();
 
   /* ---------- Шапка и меню ---------- */
 
@@ -436,7 +351,7 @@
     var controller = 'AbortController' in window ? new AbortController() : null;
     var timer = setTimeout(function () { if (controller) controller.abort(); }, 12000);
 
-    fetch('send.php', {
+    fetch(new URL('send.php', SITE_ROOT), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

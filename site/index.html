@@ -3,40 +3,147 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>eli english: частные уроки английского в Санкт-Петербурге и онлайн</title>
-  <meta name="description" content="Частные уроки английского для взрослых и детей. Онлайн или с выездом к вам в Санкт-Петербурге, рядом с метро Электросила. 13 лет практики. Первый урок 30 минут бесплатно.">
+  <title>Уроки английского с репетитором в СПб и онлайн | eli english</title>
+  <meta name="description" content="Частные уроки английского для детей с 4 лет и взрослых. Онлайн или с выездом к вам в Санкт-Петербурге, рядом с м. Электросила. 13 лет практики. Первый урок бесплатно.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
   <meta name="theme-color" content="#FFFFFF">
   <meta name="color-scheme" content="light">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="ru_RU">
-  <meta property="og:title" content="eli english: английский раз и навсегда">
-  <meta property="og:description" content="Частные уроки английского для взрослых и детей. Онлайн или лично в Санкт-Петербурге. Первый урок бесплатно.">
+  <meta property="og:site_name" content="eli english">
+  <meta property="og:title" content="Английский раз и навсегда | eli english">
+  <meta property="og:description" content="Частные уроки английского для детей и взрослых. Онлайн или с выездом в Санкт-Петербурге. Первый урок бесплатно.">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- seo:start: адрес сайта, canonical и картинка для соцсетей, заполняет tools/build.mjs -->
+  <!-- seo:end -->
   <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
   <link rel="icon" href="favicon-192.png" type="image/png" sizes="192x192">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <!-- preload:start -->
+  <link rel="preload" as="image" href="assets/img/teacher-en-1100.webp" imagesrcset="assets/img/teacher-en-680.webp 680w, assets/img/teacher-en-1100.webp 1100w" imagesizes="(max-width: 760px) 380px, 560px" fetchpriority="high">
+  <!-- preload:end -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,500;1,600&family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400..800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/style.css?v=61738ecb">
   <script>
     document.documentElement.classList.add('js');
-    (function () {
-      var lang = new URLSearchParams(location.search).get('lang');
-      if (!lang) { try { lang = localStorage.getItem('eli-lang'); } catch (e) {} }
-      if (lang === 'pl') document.documentElement.dataset.lang = 'pl';
-    })();
+    // старые ссылки вида ?lang=pl ведут на отдельную польскую страницу
+    if (/[?&]lang=pl(&|$)/.test(location.search) && document.documentElement.dataset.lang !== 'pl') location.replace('pl/' + location.hash);
   </script>
+  <!-- schema:start: разметка для поисковиков, заполняет tools/build.mjs -->
   <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "EducationalOrganization",
-    "name": "eli english",
-    "description": "Частные уроки английского и польского для взрослых и детей. Онлайн или лично в Санкт-Петербурге.",
-    "telephone": "+79777480796",
-    "areaServed": "Санкт-Петербург",
-    "sameAs": ["https://t.me/Eligolc"]
-  }
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "EducationalOrganization",
+      "@id": "#org",
+      "name": "eli english",
+      "description": "Частные уроки английского для детей с 4 лет и взрослых. Онлайн или с выездом к вам в Санкт-Петербурге, рядом с м. Электросила. 13 лет практики. Первый урок бесплатно.",
+      "telephone": "+7 977 748-07-96",
+      "sameAs": [
+        "https://t.me/Eligolc"
+      ],
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Санкт-Петербург",
+        "addressRegion": "Санкт-Петербург",
+        "addressCountry": "RU"
+      },
+      "areaServed": {
+        "@type": "City",
+        "name": "Санкт-Петербург"
+      },
+      "priceRange": "1270-2500 RUB"
+    },
+    {
+      "@type": "Course",
+      "name": "Частные уроки английского языка",
+      "description": "Частные уроки английского для детей с 4 лет и взрослых. Онлайн или с выездом к вам в Санкт-Петербурге, рядом с м. Электросила. 13 лет практики. Первый урок бесплатно.",
+      "inLanguage": "ru",
+      "provider": {
+        "@id": "#org"
+      },
+      "offers": {
+        "@type": "AggregateOffer",
+        "priceCurrency": "RUB",
+        "lowPrice": "1270",
+        "highPrice": "2500",
+        "offerCount": "16"
+      },
+      "hasCourseInstance": [
+        {
+          "@type": "CourseInstance",
+          "courseMode": "Online"
+        },
+        {
+          "@type": "CourseInstance",
+          "courseMode": "Onsite",
+          "location": {
+            "@type": "Place",
+            "name": "Санкт-Петербург, рядом с м. Электросила"
+          }
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Как проходит пробный урок?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Это 30 минут знакомства. Проверяем уровень, обсуждаем цель и удобное расписание. Урок бесплатный, а решение продолжать или нет остаётся за вами."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Я совсем не знаю язык. Мне подойдёт?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Да. Начнём с нуля и пойдём в удобном для вас темпе."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "С какого возраста можно заниматься?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "С 4 лет. Возраст не главное: заговорить может каждый. Занимаемся с детьми, подростками и взрослыми."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Как проходят онлайн-уроки?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "По видеосвязи. Нужны компьютер или планшет с камерой и стабильный интернет."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Куда приезжает преподаватель?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "К ученикам в Московском районе Санкт-Петербурга, рядом с метро Электросила. Точный адрес обсудим при записи."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Как работают пакеты?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Вы оплачиваете сразу 5, 10, 20 или 40 уроков. Чем больше пакет, тем дешевле каждый урок, скидка до 15%."
+          }
+        }
+      ]
+    }
+  ]
+}
   </script>
+  <!-- schema:end -->
 </head>
 <body>
   <a class="skip" href="#main">Перейти к содержанию</a>
@@ -56,11 +163,11 @@
       </nav>
 
       <div class="header__actions">
-        <div class="lang" role="group" aria-label="Язык занятий">
-          <button type="button" class="lang__btn" data-lang-btn="en" aria-pressed="true"><span class="lang__full">Английский</span><span class="lang__short">EN</span></button>
-          <button type="button" class="lang__btn" data-lang-btn="pl" aria-pressed="false"><span class="lang__full">Польский</span><span class="lang__short">PL</span></button>
+        <nav class="lang" aria-label="Язык занятий">
+          <a class="lang__btn" href="./" data-lang-link="en" aria-current="page"><span class="lang__full">Английский</span><span class="lang__short">EN</span></a>
+          <a class="lang__btn" href="pl/" data-lang-link="pl"><span class="lang__full">Польский</span><span class="lang__short">PL</span></a>
           <span class="lang__thumb" aria-hidden="true"></span>
-        </div>
+        </nav>
         <a class="btn btn--primary btn--sm header__cta" href="#probnyi">Пробный урок</a>
         <button type="button" class="burger" aria-expanded="false" aria-controls="menu" aria-label="Открыть меню">
           <span></span><span></span>
@@ -88,10 +195,9 @@
       <div class="container">
         <div class="hero__panel">
           <div class="hero__text">
-            <p class="eyebrow hero__eyebrow" data-i18n="eyebrow">Частные уроки английского</p>
-            <h1 class="hero__title" id="hero-title">
-              <span class="line"><span>Английский</span></span>
-              <span class="line"><span><em>раз и навсегда</em></span></span>
+            <h1 class="hero__h1">
+              <span class="eyebrow hero__eyebrow" data-i18n="eyebrow">Частные уроки английского</span>
+              <span class="hero__title" data-i18n-html="title"><span class="line"><span>Английский</span></span> <span class="line"><span><em>раз и навсегда</em></span></span></span>
             </h1>
             <p class="hero__lead">Для взрослых и детей. Онлайн или с&nbsp;выездом к&nbsp;вам в&nbsp;Санкт&#8209;Петербурге, рядом с&nbsp;метро Электросила.</p>
             <div class="hero__buttons">
@@ -104,20 +210,14 @@
           </div>
 
           <div class="hero__photo">
+            <!-- hero-img:start -->
             <img class="hero__img hero__img--en"
               src="assets/img/teacher-en-1100.webp"
               srcset="assets/img/teacher-en-680.webp 680w, assets/img/teacher-en-1100.webp 1100w"
               sizes="(max-width: 760px) 380px, 560px"
               width="1100" height="1152"
-              alt=""
-              decoding="async">
-            <img class="hero__img hero__img--pl"
-              src="assets/img/teacher-pl-1040.webp"
-              srcset="assets/img/teacher-pl-640.webp 640w, assets/img/teacher-pl-1040.webp 1040w"
-              sizes="(max-width: 760px) 380px, 560px"
-              width="1040" height="1014"
-              alt=""
-              decoding="async">
+              alt="" fetchpriority="high" decoding="async">
+            <!-- hero-img:end -->
           </div>
         </div>
 
@@ -247,14 +347,14 @@
         <div class="grid grid--2">
           <article class="audience reveal">
             <div class="audience__img">
-              <img src="assets/img/adults-1200.webp" srcset="assets/img/adults-640.webp 640w, assets/img/adults-1200.webp 1200w" sizes="(max-width: 860px) 92vw, 580px" width="1200" height="800" alt="Взрослые на занятии" loading="lazy" decoding="async">
+              <img src="assets/img/adults-1200.webp" srcset="assets/img/adults-640.webp 640w, assets/img/adults-1200.webp 1200w" sizes="(max-width: 860px) 92vw, 580px" width="1200" height="800" alt="Взрослые ученики на занятии" loading="lazy" decoding="async">
             </div>
             <h3 class="h3">Взрослым</h3>
             <p>Для работы, переезда, путешествий или для себя. Начать можно с&nbsp;любого уровня, даже с&nbsp;нуля.</p>
           </article>
           <article class="audience reveal" style="--d:.1s">
             <div class="audience__img">
-              <img src="assets/img/kids-1200.webp" srcset="assets/img/kids-640.webp 640w, assets/img/kids-1200.webp 1200w" sizes="(max-width: 860px) 92vw, 580px" width="1200" height="800" alt="Дети играют во дворе" loading="lazy" decoding="async">
+              <img src="assets/img/kids-1200.webp" srcset="assets/img/kids-640.webp 640w, assets/img/kids-1200.webp 1200w" sizes="(max-width: 860px) 92vw, 580px" width="1200" height="800" alt="Дети и подростки" loading="lazy" decoding="async">
             </div>
             <h3 class="h3">Детям и подросткам</h3>
             <p>Занятия подбираем по&nbsp;возрасту: младшим больше игр, школьникам помогаем со&nbsp;школьной программой.</p>
@@ -331,7 +431,7 @@
           </div>
           <div class="faq__item">
             <h3><button type="button" class="faq__q" aria-expanded="false" aria-controls="faq-5" id="faq-5-q">Куда приезжает преподаватель?<span class="faq__plus" aria-hidden="true"></span></button></h3>
-            <div class="faq__a" id="faq-5" role="region" aria-labelledby="faq-5-q"><div><p>К ученикам в Санкт&#8209;Петербурге, рядом с метро Электросила. Точный адрес обсудим при записи.</p></div></div>
+            <div class="faq__a" id="faq-5" role="region" aria-labelledby="faq-5-q"><div><p>К ученикам в Московском районе Санкт&#8209;Петербурга, рядом с метро Электросила. Точный адрес обсудим при записи.</p></div></div>
           </div>
           <div class="faq__item">
             <h3><button type="button" class="faq__q" aria-expanded="false" aria-controls="faq-6" id="faq-6-q">Как работают пакеты?<span class="faq__plus" aria-hidden="true"></span></button></h3>
@@ -411,15 +511,15 @@
       <div class="footer__top">
         <p class="footer__slogan" data-i18n-html="footerSlogan">Английский <em>раз и&nbsp;навсегда</em>.</p>
 
-        <div class="footer__col">
+        <address class="footer__col">
           <p class="eyebrow">Связаться</p>
           <a class="footer__link" href="https://t.me/Eligolc" target="_blank" rel="noopener">Telegram @Eligolc</a>
           <a class="footer__link" href="tel:+79777480796">+7 977 748-07-96</a>
-        </div>
+        </address>
 
         <div class="footer__col">
           <p class="eyebrow">Где</p>
-          <p>Санкт&#8209;Петербург, рядом с&nbsp;м.&nbsp;Электросила</p>
+          <p>Санкт&#8209;Петербург, Московский район, рядом с&nbsp;м.&nbsp;Электросила</p>
           <p>Онлайн из&nbsp;любого города</p>
         </div>
 
@@ -443,6 +543,6 @@
     </div>
   </footer>
 
-  <script src="assets/js/main.js" defer></script>
+  <script src="assets/js/main.js?v=3c65cfa6" defer></script>
 </body>
 </html>

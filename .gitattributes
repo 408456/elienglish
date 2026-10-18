@@ -1,0 +1,14 @@
+# Единые переводы строк (LF) во всех текстовых файлах
+* text=auto eol=lf
+
+# Картинки, шрифты и архивы git не трогает
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.webp  binary
+*.gif   binary
+*.ico   binary
+*.mp4   binary
+*.woff  binary
+*.woff2 binary
+*.zip   binary
