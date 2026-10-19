@@ -2,6 +2,7 @@
 # (Beget, Timeweb, REG.RU и большинство обычных хостингов)
 
 AddDefaultCharset utf-8
+AddType font/woff2 .woff2
 DirectoryIndex index.html
 ErrorDocument 404 /404.html
 Options -Indexes
@@ -60,13 +61,15 @@ Options -Indexes
   ExpiresByType image/webp "access plus 1 month"
   ExpiresByType image/png "access plus 1 month"
   ExpiresByType image/jpeg "access plus 1 month"
+  ExpiresByType font/woff2 "access plus 1 year"
 </IfModule>
 
 # Защитные заголовки
 <IfModule mod_headers.c>
-  # Что странице разрешено загружать и откуда. Только свой сайт и шрифты Google.
-  # Если подключите Яндекс Метрику или другой внешний сервис, его адрес нужно добавить сюда.
-  Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; connect-src 'self' https://script.google.com https://script.googleusercontent.com; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"
+  # Что странице разрешено загружать и откуда: свой сайт (шрифты тоже свои), Google Apps Script
+  # для заявок и промокодов, Яндекс Метрика (mc.yandex.ru).
+  # Новый внешний сервис (виджет, карта и т.п.) нужно добавить сюда, иначе браузер его не загрузит.
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' https://mc.yandex.ru https://yastatic.net; style-src 'self'; font-src 'self'; img-src 'self' https://mc.yandex.ru; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://mc.yandex.ru; frame-src blob: https://mc.yandex.ru; child-src blob: https://mc.yandex.ru; form-action 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests"
   # Браузер ходит на сайт только по HTTPS (включается после настройки SSL на хостинге)
   Header always set Strict-Transport-Security "max-age=31536000"
   # Сайт нельзя встроить в чужую страницу (защита от подмены кликов)

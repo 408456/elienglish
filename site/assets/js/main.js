@@ -11,14 +11,15 @@
   // node tools/build.mjs. Здесь только цены и логика.
 
   // Куда форма «Первый урок бесплатно» отправляет заявку: веб-приложение Google Apps Script
-  // (google/bot.gs). Оно пишет заявку в Google Таблицу и присылает её в бота заявок.
+  // (google/bot.gs). Оно пишет заявку в Google Таблицу, присылает её в бота заявок
+  // и проверяет промокоды.
   var LEADS_URL = 'https://script.google.com/macros/s/AKfycbzl_Q29J0lezSbkuDxqMutdh8GyEBBaAh3a4npjuFhYISAN1e-gjT02rum4dl1PrIVuVQ/exec';
   // Личный Telegram преподавателя: сюда ведут «Написать в Telegram» и нижний блок записи.
   var PERSONAL_TG = 'Eligolc';
 
-  // Цена одного урока онлайн. Лично: +500 ₽ (видно только в ценах).
+  // Цена одного урока онлайн. Лично: +1000 ₽ (видно только в ценах).
   var BASE = { en: { 60: 1500, 90: 2000 }, pl: { 60: 2000, 90: 2500 } };
-  var OFFLINE_EXTRA = 500;
+  var OFFLINE_EXTRA = 1000;
 
   // Порядок как в референсе: от большого пакета к маленькому.
   var PACKS = [
@@ -32,21 +33,38 @@
     lang: root.dataset.lang === 'pl' ? 'pl' : 'en',
     format: 'online',
     dur: 60,
-    pack: null
+    pack: null,
+    promo: null // { code: 'VESNA10', off: 10 }, когда код проверен
   };
 
   var nf = new Intl.NumberFormat('ru-RU');
-  function rub(n) { return nf.format(n) + ' ₽'; }
+  function rub(n) { return nf.format(n) + ' ₽'; }
 
   function lessonPrice(lang, format, dur) {
     return BASE[lang][dur] + (format === 'offline' ? OFFLINE_EXTRA : 0);
   }
 
+  // Скидка промокода прибавляется к скидке пакета: 15% + 10% = 25%.
   function packPrice(pack) {
     var full = lessonPrice(state.lang, state.format, state.dur);
-    var per = Math.floor(full * (100 - pack.off) / 100 / 10) * 10;
-    return { per: per, total: per * pack.n, full: full * pack.n };
+    var off = Math.min(pack.off + (state.promo ? state.promo.off : 0), 60);
+    var per = Math.floor(full * (100 - off) / 100 / 10) * 10;
+    return { per: per, total: per * pack.n, full: full * pack.n, off: off };
   }
+
+  /* ---------- Цели Яндекс Метрики (работают, только если она подключена) ---------- */
+
+  var metrikaEl = document.querySelector('script[data-metrika]');
+  function goal(name) {
+    var id = metrikaEl ? Number(metrikaEl.dataset.metrika) : 0;
+    if (id && window.ym) { try { window.ym(id, 'reachGoal', name); } catch (e) {} }
+  }
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest('a[href]');
+    if (!a) return;
+    if (a.href.indexOf('https://t.me/') === 0) goal('telegram');
+    else if (a.href.indexOf('tel:') === 0) goal('call');
+  });
 
   /* ---------- Плавная смена чисел ---------- */
 
@@ -65,6 +83,8 @@
       if (t < 1 && Number(el.dataset.value) === to) requestAnimationFrame(step);
     }
     requestAnimationFrame(step);
+    // страховка: в фоновой вкладке анимация не идёт, а цена должна быть верной
+    setTimeout(function () { if (Number(el.dataset.value) === to) el.textContent = rub(to); }, 600);
   }
 
   /* ---------- Цены ---------- */
@@ -80,7 +100,7 @@
   }
 
   function buildPricing() {
-    pricingEl.innerHTML = PACKS.map(function (p, i) {
+    pricingEl.innerHTML = PACKS.map(function (p) {
       return (
         '<article class="price reveal' + (p.best ? ' price--best' : '') + '">' +
           '<h3 class="price__name">' + p.n + ' уроков</h3>' +
@@ -90,13 +110,11 @@
           '<ul class="price__list">' +
             '<li data-k="lesson">Индивидуальные уроки по 60 минут</li>' +
             feature(p.report, 'Отчёт о прогрессе раз в месяц', 'в пакетах от 20 уроков') +
-            feature(p.freeze, 'Заморозка пакета на отпуск или болезнь', 'в пакете 40 уроков') +
+            feature(p.freeze, 'Заморозка пакета на время отпуска или болезни', 'в пакете из 40 уроков') +
           '</ul>' +
           '<div class="price__per"><span class="price__num" data-k="per"></span><span class="price__unit">за урок</span></div>' +
           '<p class="price__total"><b data-k="total"></b> за пакет</p>' +
-          '<p class="price__was">' +
-            (p.off ? '<s data-k="full"></s><span class="price__off">−' + p.off + '%</span>' : 'без скидки') +
-          '</p>' +
+          '<p class="price__was" data-k="was"></p>' +
           '<button type="button" class="btn ' + (p.best ? 'btn--white' : 'btn--ghost') + '" data-pack="' + p.n + '">Записаться</button>' +
         '</article>'
       );
@@ -110,8 +128,9 @@
       var card = cards[i];
       tweenNumber(card.querySelector('[data-k="per"]'), c.per);
       card.querySelector('[data-k="total"]').textContent = rub(c.total);
-      var full = card.querySelector('[data-k="full"]');
-      if (full) full.textContent = rub(c.full);
+      card.querySelector('[data-k="was"]').innerHTML = c.off
+        ? '<s>' + rub(c.full) + '</s><span class="price__off">−' + c.off + '%</span>'
+        : 'без скидки';
       card.querySelector('[data-k="lesson"]').textContent = 'Индивидуальные уроки по ' + state.dur + ' минут';
     });
     tweenNumber(onePriceEl, lessonPrice(state.lang, state.format, state.dur));
@@ -126,31 +145,156 @@
     input.addEventListener('change', function () { state.dur = Number(input.value); renderPrices(); });
   });
 
-  /* ---------- Промокод и реферальная ссылка ---------- */
+  /* ---------- Промокод ---------- */
 
-  // ?ref=код: человек пришёл по ссылке ученика. Запоминаем на 30 дней и убираем из адреса.
-  // ?promo=КОД: промокод сразу вписывается в форму.
-  var REF_KEY = 'eli-ref';
-  var params = new URLSearchParams(location.search);
-  var refCode = '';
-  var promoFromLink = '';
-  (function () {
-    var ref = (params.get('ref') || '').toLowerCase();
-    var promo = (params.get('promo') || '').toUpperCase();
+  // Поле есть в ценах и в форме пробного урока, они всегда показывают один и тот же код.
+  // Код проверяет веб-приложение Google (лист «Промокоды» в таблице заявок),
+  // после проверки цены пакетов сразу пересчитываются.
+  // Ссылка вида сайт/?promo=VESNA10 вписывает код сам и помнит его 30 дней.
+  var PROMO_KEY = 'eli-promo';
+  var promoBox = document.getElementById('promo');
+  var promoInput = document.getElementById('promo-input');
+  var promoBtn = document.getElementById('promo-btn');
+  var form = document.getElementById('trial-form');
+  var formPromo = form.elements.promo;
+  var promoInputs = [promoInput, formPromo];
+  var promoNotes = document.querySelectorAll('[data-promo-note]');
+  var promoChecked = {}; // код -> ответ сервера, чтобы не спрашивать дважды
+  var promoSeq = 0;
+  var promoTimer = 0;
+
+  function normCode(value) { return String(value || '').trim().toUpperCase(); }
+  function isCode(code) { return /^[A-Z0-9_-]{2,20}$/.test(code); }
+
+  function savePromo(code) {
     try {
-      if (/^[a-z0-9]{4,12}$/.test(ref)) localStorage.setItem(REF_KEY, JSON.stringify({ code: ref, at: Date.now() }));
-      var saved = JSON.parse(localStorage.getItem(REF_KEY) || 'null');
-      if (saved && Date.now() - saved.at < 30 * 864e5 && /^[a-z0-9]{4,12}$/.test(saved.code)) refCode = saved.code;
-    } catch (e) {
-      if (/^[a-z0-9]{4,12}$/.test(ref)) refCode = ref;
+      if (code) localStorage.setItem(PROMO_KEY, JSON.stringify({ code: code, at: Date.now() }));
+      else localStorage.removeItem(PROMO_KEY);
+    } catch (e) {}
+  }
+
+  function setPromoNote(text, ok) {
+    promoNotes.forEach(function (el) {
+      el.textContent = text;
+      el.classList.toggle('is-ok', Boolean(ok));
+    });
+    promoBox.classList.toggle('is-ok', Boolean(ok));
+  }
+
+  function updatePromoBtn() {
+    var code = normCode(promoInput.value);
+    var applied = state.promo && state.promo.code === code;
+    promoBtn.textContent = applied ? 'Убрать' : 'Применить';
+    promoBtn.disabled = !applied && !code;
+  }
+
+  function setPromo(promo, note) {
+    var changed = (state.promo && state.promo.code) !== (promo && promo.code);
+    state.promo = promo;
+    setPromoNote(promo ? 'Промокод действует: −' + promo.off + '% к цене пакетов' : (note || ''), Boolean(promo));
+    updatePromoBtn();
+    if (changed) {
+      renderPrices();
+      updateSignup();
     }
-    if (/^[A-Z0-9_-]{2,20}$/.test(promo)) promoFromLink = promo;
-    if (params.has('ref') || params.has('promo')) {
-      params.delete('ref');
+  }
+
+  function checkPromo(code) {
+    if (!LEADS_URL) return Promise.resolve(null);
+    if (!promoChecked[code]) {
+      promoChecked[code] = fetch(LEADS_URL + '?promo=' + encodeURIComponent(code))
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          return data && data.ok && Number(data.off) > 0
+            ? { ok: true, off: Math.min(Number(data.off), 50) }
+            : { ok: false };
+        })
+        .catch(function () {
+          delete promoChecked[code]; // нет связи: в следующий раз спросим снова
+          return null;
+        });
+    }
+    return promoChecked[code];
+  }
+
+  // source: поле, в котором человек печатает (второе поле получает тот же текст)
+  function applyPromo(value, source, quiet) {
+    var code = normCode(value);
+    promoInputs.forEach(function (input) { if (input !== source) input.value = code; });
+    clearTimeout(promoTimer);
+    var seq = ++promoSeq;
+    if (!code) { setPromo(null, ''); savePromo(''); return; }
+    if (!isCode(code)) { setPromo(null, 'В промокоде только латинские буквы и цифры'); return; }
+    if (state.promo && state.promo.code === code) { updatePromoBtn(); return; }
+    setPromo(null, quiet ? '' : 'Проверяем промокод…');
+    checkPromo(code).then(function (result) {
+      if (seq !== promoSeq) return; // человек уже ввёл другой код
+      if (!result) {
+        setPromo(null, quiet ? '' : 'Не получилось проверить код. Оставьте заявку, и мы учтём скидку.');
+      } else if (result.ok) {
+        setPromo({ code: code, off: result.off });
+        savePromo(code);
+      } else if (quiet) {
+        // сохранённый код больше не действует: молча убираем
+        promoInputs.forEach(function (input) { input.value = ''; });
+        setPromo(null, '');
+        savePromo('');
+      } else {
+        setPromo(null, 'Такого промокода нет');
+      }
+    });
+  }
+
+  promoInputs.forEach(function (input) {
+    input.addEventListener('input', function () {
+      var code = normCode(input.value);
+      promoInputs.forEach(function (other) { if (other !== input) other.value = code; });
+      clearTimeout(promoTimer);
+      promoSeq++;
+      if (state.promo && state.promo.code !== code) setPromo(null, '');
+      else if (!state.promo) setPromoNote('', false);
+      updatePromoBtn();
+      // проверяем сами, когда человек перестал печатать
+      if (isCode(code) && code.length >= 3) promoTimer = setTimeout(function () { applyPromo(code, input); }, 700);
+    });
+    input.addEventListener('blur', function () {
+      var code = normCode(input.value);
+      if (code && !(state.promo && state.promo.code === code)) applyPromo(code, input);
+    });
+  });
+
+  promoInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); applyPromo(promoInput.value, promoInput); }
+  });
+
+  promoBtn.addEventListener('click', function () {
+    if (state.promo && state.promo.code === normCode(promoInput.value)) {
+      promoInputs.forEach(function (input) { input.value = ''; });
+      applyPromo('', null);
+      promoInput.focus();
+    } else {
+      applyPromo(promoInput.value, promoInput);
+    }
+  });
+
+  // Промокод из ссылки (?promo=КОД) или сохранённый в прошлый раз
+  (function () {
+    var params = new URLSearchParams(location.search);
+    var fromLink = normCode(params.get('promo'));
+    var saved = '';
+    try {
+      var s = JSON.parse(localStorage.getItem(PROMO_KEY) || 'null');
+      if (s && Date.now() - s.at < 30 * 864e5) saved = normCode(s.code);
+    } catch (e) {}
+    if (params.has('promo') || params.has('ref')) {
       params.delete('promo');
+      params.delete('ref');
       var qs = params.toString();
       try { history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash); } catch (e) {}
     }
+    var code = isCode(fromLink) ? fromLink : saved;
+    if (isCode(code)) applyPromo(code, null, !fromLink);
+    updatePromoBtn();
   })();
 
   /* ---------- Нижний блок: сообщение преподавателю в Telegram ---------- */
@@ -170,17 +314,20 @@
     return el ? el.value : '';
   }
 
+  function subjGen() {
+    return (document.querySelector('[data-i18n="subjGen"]') || {}).textContent || 'английского';
+  }
+
   function updateSignup() {
-    var subj = (document.querySelector('[data-i18n="subjGen"]') || {}).textContent || 'английского';
     var name = signupName.value.trim().replace(/\s+/g, ' ');
     var who = checked('who') === 'kid' ? 'ребёнок' : 'взрослый';
-    var fmt = checked('fmt') === 'offline' ? 'лично, с выездом' : 'онлайн';
+    var fmt = checked('fmt') === 'offline' ? 'лично' : 'онлайн';
     var msg = 'Здравствуйте! ' +
       (name ? 'Меня зовут ' + name + '. ' : '') +
-      'Хочу записаться на бесплатный пробный урок ' + subj + '. ' +
+      'Хочу записаться на бесплатный пробный урок ' + subjGen() + '. ' +
       'Кто будет заниматься: ' + who + '. Формат: ' + fmt + '.' +
       (state.pack ? ' Интересует пакет: ' + state.pack.n + ' уроков по ' + state.pack.dur + ' минут.' : '') +
-      (refCode ? ' Код приглашения: ' + refCode + '.' : '');
+      (state.promo ? ' Промокод: ' + state.promo.code + '.' : '');
     signupMsg.textContent = msg;
     signupTg.href = tgLink(msg);
 
@@ -205,6 +352,7 @@
     var btn = e.target.closest('[data-pack]');
     if (!btn) return;
     state.pack = { n: Number(btn.dataset.pack), dur: state.dur };
+    goal('pack');
     document.getElementById(state.format === 'offline' ? 'fmt-offline' : 'fmt-online').checked = true;
     updateSignup();
     document.getElementById('zapis').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth' });
@@ -273,11 +421,9 @@
 
   /* ---------- Форма пробного урока ---------- */
 
-  var form = document.getElementById('trial-form');
   var formBody = form.querySelector('.form__body');
   var stateOk = form.querySelector('.form__state--ok');
   var stateErr = form.querySelector('.form__state--error');
-  var submitBtn = form.querySelector('button[type="submit"]');
   var phoneInput = form.elements.phone;
   var formShownAt = Date.now(); // сервер отсекает заявки, заполненные быстрее 3 секунд
 
@@ -304,6 +450,31 @@
   });
   phoneInput.addEventListener('blur', function () { phoneInput.value = formatPhone(phoneInput.value); });
 
+  // Те же правила проверяет сервер (google/bot.gs). Ошибки показываем только после
+  // нажатия «Записаться» и убираем, как только поле исправлено.
+  function nameProblem(value) {
+    var letters = (value.match(/\p{L}/gu) || []).length;
+    if (letters < 2) return 'Напишите, как к вам обращаться';
+    if (!/^[\p{L}\p{M}][\p{L}\p{M} .'-]*$/u.test(value)) return 'Имя только буквами';
+    if (value.length > 40 || value.split(' ').length > 4 || /(\p{L})\1\1/iu.test(value)) return 'Проверьте имя';
+    return '';
+  }
+
+  // Россия и Казахстан: +7 и 10 цифр, код начинается с 3, 4, 7, 8 или 9. Другие страны: 10–15 цифр.
+  function phoneProblem(value) {
+    var d = value.replace(/\D/g, '');
+    if (d.length === 11 && d.charAt(0) === '8') d = '7' + d.slice(1);
+    var ru = d.charAt(0) === '7';
+    if (d.length < (ru ? 11 : 10)) return 'Укажите номер полностью';
+    if (ru ? d.length !== 11 || !/[34789]/.test(d.charAt(1)) : d.length > 15) return 'Проверьте номер';
+    if (/^(\d)\1+$/.test(d.slice(ru ? 1 : 0))) return 'Проверьте номер';
+    return '';
+  }
+
+  function cleanTelegram(value) {
+    return value.trim().replace(/^(https?:\/\/)?(t\.me|telegram\.me)\//i, '').replace(/^@/, '');
+  }
+
   function setError(input, message) {
     var field = input.closest('.field');
     field.classList.toggle('is-invalid', Boolean(message));
@@ -315,24 +486,17 @@
     var name = form.elements.name;
     var tg = form.elements.telegram;
     var ok = true;
+    function check(input, message) {
+      setError(input, message);
+      if (message) ok = false;
+    }
 
-    var nameValue = name.value.trim();
-    if (nameValue.length < 2) { setError(name, 'Напишите, как к вам обращаться'); ok = false; }
-    else if (!/^[\p{L}\p{M}][\p{L}\p{M} .'-]*$/u.test(nameValue)) { setError(name, 'Имя только буквами'); ok = false; }
-    else setError(name, '');
-
-    if (phoneInput.value.replace(/\D/g, '').length < 10) { setError(phoneInput, 'Укажите номер телефона полностью'); ok = false; }
-    else setError(phoneInput, '');
-
-    var promo = form.elements.promo;
-    if (promo.value.trim() && !/^[A-Za-z0-9_-]{2,20}$/.test(promo.value.trim())) { setError(promo, 'Только латинские буквы и цифры'); ok = false; }
-    else setError(promo, '');
-
-    var tgValue = tg.value.trim();
-    if (tgValue && !/^(@?[A-Za-z0-9_]{4,32}|\+?[\d\s()-]{10,20})$/.test(tgValue)) {
-      setError(tg, 'Ник в формате @username'); ok = false;
-    } else setError(tg, '');
-
+    check(name, nameProblem(name.value.trim().replace(/\s+/g, ' ')));
+    check(phoneInput, phoneProblem(phoneInput.value));
+    var tgValue = cleanTelegram(tg.value);
+    check(tg, tgValue && !/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(tgValue) ? 'Ник в формате @username, от 5 символов' : '');
+    var promo = normCode(formPromo.value);
+    check(formPromo, promo && !isCode(promo) ? 'В промокоде только латинские буквы и цифры' : '');
     return ok;
   }
 
@@ -354,38 +518,62 @@
   }
 
   function showState(el) {
-    formBody.hidden = true;
+    formBody.hidden = Boolean(el);
     stateOk.hidden = el !== stateOk;
     stateErr.hidden = el !== stateErr;
+    stateOk.classList.remove('is-drawn');
     if (el === stateOk) {
       prepareDraw(stateOk);
       void stateOk.offsetWidth;
       stateOk.classList.add('is-drawn');
     }
-    el.focus({ preventScroll: true });
+    if (el) el.focus({ preventScroll: true });
   }
 
   // Заявка не ушла (нет связи или сервис недоступен). Не теряем человека:
   // предлагаем отправить ту же заявку преподавателю в Telegram готовым сообщением.
   var trialFallback = document.getElementById('trial-fallback');
   function showFallback(p) {
-    var subj = (document.querySelector('[data-i18n="subjGen"]') || {}).textContent || 'английского';
-    trialFallback.href = tgLink('Здравствуйте! Меня зовут ' + p.name + '. Хочу записаться на бесплатный пробный урок ' + subj +
-      '. Мой телефон: ' + p.phone + '.' + (p.promo ? ' Промокод: ' + p.promo + '.' : '') + (p.ref ? ' Код приглашения: ' + p.ref + '.' : ''));
+    trialFallback.href = tgLink('Здравствуйте! Меня зовут ' + p.name + '. Хочу записаться на бесплатный пробный урок ' + subjGen() +
+      '. Мой телефон: ' + p.phone + '.' + (p.telegram ? ' Telegram: @' + p.telegram + '.' : '') + (p.promo ? ' Промокод: ' + p.promo + '.' : ''));
     showState(stateErr);
   }
 
-  form.querySelector('[data-form-retry]').addEventListener('click', function () {
-    stateErr.hidden = true;
-    formBody.hidden = false;
-    submitBtn.focus();
-  });
+  function backToForm() {
+    showState(null);
+    form.elements.name.focus();
+  }
+  form.querySelector('[data-form-retry]').addEventListener('click', backToForm);
+  form.querySelector('[data-form-again]').addEventListener('click', backToForm);
 
-  if (promoFromLink && form.elements.promo) form.elements.promo.value = promoFromLink;
+  // Сервер нашёл ошибку в полях (бывает редко: правила те же). Возвращаем заполненную форму.
+  function showServerErrors(p, fields) {
+    form.elements.name.value = p.name;
+    phoneInput.value = p.phone;
+    form.elements.telegram.value = p.telegram;
+    var messages = { name: 'Проверьте имя', phone: 'Проверьте номер', telegram: 'Ник в формате @username, от 5 символов', promo: 'Проверьте промокод' };
+    showState(null);
+    fields.forEach(function (f) { if (form.elements[f]) setError(form.elements[f], messages[f]); });
+  }
+
+  // Google отвечает за 2–5 секунд, иногда дольше. Поэтому «Заявка отправлена» видно сразу,
+  // а сама заявка уходит в фоне. Если она не ушла, вместо этого появится запасной вариант.
+  function sendLead(p, attempt) {
+    fetch(LEADS_URL, { method: 'POST', body: JSON.stringify(p) }) // без своих заголовков: так Google принимает запрос с любого сайта
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (data && data.ok) { goal('lead'); return; }
+        if (data && data.error === 'fields' && Array.isArray(data.fields) && data.fields.length) showServerErrors(p, data.fields);
+        else showFallback(p);
+      })
+      .catch(function () {
+        if (attempt < 1) setTimeout(function () { sendLead(p, attempt + 1); }, 2000);
+        else showFallback(p);
+      });
+  }
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
-    if (form.classList.contains('is-sending')) return;
     if (!validate()) {
       var bad = form.querySelector('[aria-invalid="true"]');
       if (bad) bad.focus();
@@ -396,9 +584,8 @@
       kind: 'lead',
       name: form.elements.name.value.trim().replace(/\s+/g, ' '),
       phone: phoneInput.value.trim(),
-      telegram: form.elements.telegram.value.trim(),
-      promo: form.elements.promo.value.trim().toUpperCase(),
-      ref: refCode,
+      telegram: cleanTelegram(form.elements.telegram.value),
+      promo: normCode(formPromo.value),
       website: form.elements.website.value,
       lang: state.lang,
       elapsed: Date.now() - formShownAt
@@ -406,41 +593,10 @@
 
     if (!LEADS_URL) { showFallback(payload); return; }
 
-    form.classList.add('is-sending');
-    submitBtn.disabled = true;
-    submitBtn.querySelector('.btn__label').textContent = 'Отправляем…';
-
-    var controller = 'AbortController' in window ? new AbortController() : null;
-    var timer = setTimeout(function () { if (controller) controller.abort(); }, 15000);
-
-    // Простой запрос без своих заголовков: так Google принимает его с любого сайта.
-    fetch(LEADS_URL, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-      signal: controller ? controller.signal : undefined
-    })
-      .then(function (res) { return res.json().catch(function () { return { ok: false }; }); })
-      .then(function (data) {
-        if (data && data.ok) {
-          form.reset();
-          showState(stateOk);
-          return;
-        }
-        // сервис нашёл ошибку в полях: подсвечиваем их, форму не прячем
-        if (data && data.error === 'fields' && Array.isArray(data.fields) && data.fields.length) {
-          var messages = { name: 'Проверьте имя', phone: 'Проверьте номер телефона', telegram: 'Ник в формате @username', promo: 'Такого промокода нет' };
-          data.fields.forEach(function (f) { if (form.elements[f]) setError(form.elements[f], messages[f]); });
-          return;
-        }
-        showFallback(payload);
-      })
-      .catch(function () { showFallback(payload); })
-      .then(function () {
-        clearTimeout(timer);
-        form.classList.remove('is-sending');
-        submitBtn.disabled = false;
-        submitBtn.querySelector('.btn__label').textContent = 'Записаться';
-      });
+    form.reset();
+    formPromo.value = state.promo ? state.promo.code : '';
+    showState(stateOk);
+    sendLead(payload, 0);
   });
 
   /* ---------- Появления и счётчики ---------- */
