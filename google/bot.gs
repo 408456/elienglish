@@ -22,7 +22,7 @@ const CONFIG = {
   WEBHOOK_SECRET: '',        // длинная случайная строка: Telegram присылает её в адресе
   OWNER_CODE: '',            // одноразовый код владельца бота
   ADMIN_USERNAMES: ['eligolc'], // станут админами, когда откроют бота (без @, маленькими буквами)
-  SITE_URL: 'https://408456.github.io/elienglish/', // адрес сайта для ссылок в боте
+  SITE_URL: 'https://elienglish.ru/', // адрес сайта для ссылок в боте
   PERSONAL_TG: 'Eligolc',    // личный Telegram преподавателя
   TIMEZONE: 'Europe/Moscow',
 };

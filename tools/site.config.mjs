@@ -3,7 +3,7 @@
 
 // Адрес сайта без слэша в конце, например 'https://elienglish.ru'.
 // Включает canonical, картинки для мессенджеров, sitemap.xml и IndexNow.
-export const SITE_URL = '';
+export const SITE_URL = 'https://elienglish.ru';
 
 // Коды подтверждения прав из кабинетов поисковиков (только сам код из content="...").
 export const VERIFY = {
