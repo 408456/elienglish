@@ -2,11 +2,15 @@
 # Папка site/ копируется по FTP в папку сайта на хостинге (меняются только изменённые файлы),
 # потом Яндекс и Bing получают сигнал IndexNow, что страницы обновились.
 #
-# Один раз: GitHub → Settings → Secrets and variables → Actions → New repository secret:
-#   FTP_SERVER    адрес FTP-сервера из панели SpaceWeb (например, ftp.ваш-логин.sweb.ru или IP)
-#   FTP_USERNAME  логин FTP-аккаунта, у которого домашняя папка = папка сайта (public_html)
+# Один раз:
+# 1. Панель SpaceWeb → Инструменты → FTP-аккаунты → «Добавить FTP-аккаунт»: логин, новый пароль,
+#    папка сайта (public_html).
+# 2. GitHub → Settings → Secrets and variables → Actions → New repository secret:
+#   FTP_SERVER    IP-адрес сервера из панели SpaceWeb (раздел «IP-адреса») или домен сайта
+#   FTP_USERNAME  логин этого FTP-аккаунта (как он показан в панели)
 #   FTP_PASSWORD  пароль этого FTP-аккаунта
-#   FTP_PROTOCOL  необязательно: ftps (по умолчанию) или ftp, если хостинг не поддерживает шифрование
+#   FTP_DIR       необязательно: папка сайта, если аккаунт открыт не в ней (например public_html/)
+#   FTP_PROTOCOL  необязательно: ftps (по умолчанию, с шифрованием) или ftp
 # Пока секретов нет, выкладка просто пропускается.
 name: Выкладка на хостинг
 
@@ -42,7 +46,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ${{ secrets.FTP_PROTOCOL || 'ftps' }}
           local-dir: ./site/
-          server-dir: ./
+          server-dir: ${{ secrets.FTP_DIR || './' }}
           # служебный файл со списком выложенного: закрыт от браузера правилами .htaccess
           state-name: .ftp-deploy-sync-state.json
 
