@@ -20,6 +20,7 @@ const types = {
   '.ico': 'image/x-icon',
   '.txt': 'text/plain; charset=utf-8',
   '.xml': 'application/xml',
+  '.woff2': 'font/woff2',
 };
 
 // Заголовки и запреты читаем из .htaccess, чтобы локально было как на хостинге.

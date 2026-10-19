@@ -7,26 +7,25 @@
 //    сайта, canonical и картинку для соцсетей.
 // 3. Собирает польскую страницу site/pl/index.html из index.html: меняет только то,
 //    что отличается (блок PL ниже). Всё остальное общее.
-// 4. Пишет robots.txt и, если задан адрес сайта, sitemap.xml.
+// 4. Пишет robots.txt и, если задан адрес сайта, sitemap.xml и ключ IndexNow.
+// 5. Подключает Яндекс Метрику и коды подтверждения поисковиков, если они заданы.
 //
+// Адрес сайта, коды и счётчик лежат в tools/site.config.mjs.
 // Запускайте после любой правки index.html. Польскую страницу руками не правьте.
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
-
-// Адрес сайта без слэша в конце, например 'https://eli-english.ru'.
-// Пока сайт не выложен, оставьте пустым.
-const SITE_URL = '';
+import { SITE_URL, VERIFY, METRIKA_ID, INDEXNOW_KEY } from './site.config.mjs';
 
 // ---------- Что отличается на польской странице ----------
 
 const PL = {
   titleTag: 'Уроки польского языка с репетитором в СПб и онлайн | eli polski',
-  description: 'Частные уроки польского языка для детей с 4 лет и взрослых. Онлайн или с выездом к вам в Санкт-Петербурге, рядом с м. Электросила. 13 лет практики. Первый урок бесплатно.',
+  description: 'Репетитор польского языка для детей с 4 лет и взрослых: онлайн по видеозвонку или лично в Санкт-Петербурге. 13 лет практики, первый урок бесплатно.',
   ogTitle: 'Польский без границ | eli polski',
-  ogDescription: 'Частные уроки польского для детей и взрослых. Онлайн или с выездом в Санкт-Петербурге. Первый урок бесплатно.',
+  ogDescription: 'Частные уроки польского для детей и взрослых. Онлайн или лично в Санкт-Петербурге. Первый урок бесплатно.',
   siteName: 'eli polski',
   // элементы с data-i18n="ключ": простой текст
   text: {
@@ -46,7 +45,7 @@ const PL = {
               srcset="assets/img/teacher-pl-640.webp 640w, assets/img/teacher-pl-1040.webp 1040w"
               sizes="(max-width: 760px) 380px, 560px"
               width="1040" height="1014"
-              alt="" fetchpriority="high" decoding="async">`,
+              alt="Преподаватель польского языка" fetchpriority="high" decoding="async">`,
   preload: `<link rel="preload" as="image" href="assets/img/teacher-pl-1040.webp" imagesrcset="assets/img/teacher-pl-640.webp 640w, assets/img/teacher-pl-1040.webp 1040w" imagesizes="(max-width: 760px) 380px, 560px" fetchpriority="high">`
 };
 
@@ -164,7 +163,7 @@ function schema(lang, html, description, prices) {
     offers: { '@type': 'AggregateOffer', priceCurrency: 'RUB', lowPrice: String(prices.low), highPrice: String(prices.high), offerCount: '16' },
     hasCourseInstance: [
       { '@type': 'CourseInstance', courseMode: 'Online' },
-      { '@type': 'CourseInstance', courseMode: 'Onsite', location: { '@type': 'Place', name: 'Санкт-Петербург, рядом с м. Электросила' } }
+      { '@type': 'CourseInstance', courseMode: 'Onsite', location: { '@type': 'Place', name: 'Санкт-Петербург' } }
     ]
   };
   const faq = { '@type': 'FAQPage', mainEntity: faqFromHtml(html) };
@@ -172,12 +171,20 @@ function schema(lang, html, description, prices) {
   return '<script type="application/ld+json">\n' + JSON.stringify(data, null, 2) + '\n  </script>';
 }
 
+function verifyTags() {
+  const names = { yandex: 'yandex-verification', google: 'google-site-verification', bing: 'msvalidate.01' };
+  return Object.entries(VERIFY)
+    .filter(([, code]) => code)
+    .map(([key, code]) => `<meta name="${names[key]}" content="${code.replace(/[^\w-]/g, '')}">`);
+}
+
 function seoTags(lang) {
-  if (!SITE_URL) return '';
+  if (!SITE_URL) return verifyTags().join('\n  ');
   const page = PAGES[lang];
   const url = SITE_URL + page.path;
   const img = SITE_URL + '/' + page.og;
   return [
+    ...verifyTags(),
     `<link rel="canonical" href="${url}">`,
     `<meta property="og:url" content="${url}">`,
     `<meta property="og:image" content="${img}">`,
@@ -216,6 +223,7 @@ const prices = pricesFromScript();
 const cssV = hash('assets/css/style.css');
 const jsV = hash('assets/js/main.js');
 const headV = hash('assets/js/head.js');
+const metrikaId = String(METRIKA_ID).replace(/\D/g, '');
 
 en = en.replace(/assets\/css\/style\.css\?v=[^"]*/, 'assets/css/style.css?v=' + cssV);
 en = en.replace(/assets\/js\/main\.js\?v=[^"]*/, 'assets/js/main.js?v=' + jsV);
@@ -223,6 +231,9 @@ en = en.replace(/assets\/js\/head\.js\?v=[^"]*/, 'assets/js/head.js?v=' + headV)
 const enDescription = (en.match(/<meta name="description" content="([^"]*)"/) || [])[1];
 if (!enDescription) fail('нет meta description');
 en = replaceBlock(en, 'seo', seoTags('en'));
+en = replaceBlock(en, 'metrika', metrikaId
+  ? `<script src="assets/js/metrika.js?v=${hash('assets/js/metrika.js')}" data-metrika="${metrikaId}" defer></script>`
+  : '');
 en = replaceBlock(en, 'schema', schema('en', en, enDescription, prices.en));
 writeFileSync(file('index.html'), en);
 
@@ -250,7 +261,7 @@ pl = pl.replace('<!doctype html>', '<!doctype html>\n<!-- Собрано ком�
 mkdirSync(file('pl'), { recursive: true });
 writeFileSync(file('pl/index.html'), pl);
 
-// ---------- 4. robots.txt и sitemap.xml ----------
+// ---------- 4. robots.txt, sitemap.xml и ключ IndexNow ----------
 
 const robots = [
   'User-agent: *',
@@ -260,15 +271,26 @@ const robots = [
 writeFileSync(file('robots.txt'), robots);
 
 if (SITE_URL) {
-  const today = new Date().toISOString().slice(0, 10);
-  const url = (path, priority) => `  <url>\n    <loc>${SITE_URL}${path}</loc>\n    <lastmod>${today}</lastmod>\n    <priority>${priority}</priority>\n  </url>`;
-  writeFileSync(file('sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${url('/', '1.0')}\n${url('/pl/', '0.9')}\n</urlset>\n`);
+  // дата в sitemap меняется, только когда меняются сами страницы
+  const pagesHash = createHash('md5').update(en + pl).digest('hex').slice(0, 12);
+  const old = existsSync(file('sitemap.xml')) ? read('sitemap.xml') : '';
+  const keep = old.includes('<!-- ' + pagesHash + ' -->') && (old.match(/<lastmod>([^<]+)<\/lastmod>/) || [])[1];
+  const day = keep || new Date().toISOString().slice(0, 10);
+  const url = (path, priority) => `  <url>\n    <loc>${SITE_URL}${path}</loc>\n    <lastmod>${day}</lastmod>\n    <priority>${priority}</priority>\n  </url>`;
+  writeFileSync(file('sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<!-- ${pagesHash} -->\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${url('/', '1.0')}\n${url('/pl/', '0.9')}\n</urlset>\n`);
 } else if (existsSync(file('sitemap.xml'))) {
   rmSync(file('sitemap.xml'));
 }
 
+// файл-ключ IndexNow лежит в корне сайта, только когда сайт на своём адресе
+for (const name of readdirSync(root)) {
+  if (/^[0-9a-f]{32}\.txt$/.test(name) && !(SITE_URL && name === INDEXNOW_KEY + '.txt')) rmSync(file(name));
+}
+if (SITE_URL && /^[0-9a-f]{32}$/.test(INDEXNOW_KEY)) writeFileSync(file(INDEXNOW_KEY + '.txt'), INDEXNOW_KEY);
+
 console.log('Готово.');
 console.log('  index.html: версии style.css=' + cssV + ', main.js=' + jsV + ', head.js=' + headV);
 console.log('  pl/index.html: собрана');
-console.log('  robots.txt: записан' + (SITE_URL ? ', sitemap.xml: записан' : ''));
-if (!SITE_URL) console.log('  Адрес сайта не задан (SITE_URL в tools/build.mjs): canonical, картинки для соцсетей и sitemap появятся после выкладки.');
+console.log('  robots.txt: записан' + (SITE_URL ? ', sitemap.xml и ключ IndexNow: записаны' : ''));
+console.log('  Яндекс Метрика: ' + (metrikaId ? 'счётчик ' + metrikaId : 'выключена (METRIKA_ID пустой)'));
+if (!SITE_URL) console.log('  Адрес сайта не задан (SITE_URL в tools/site.config.mjs): canonical, картинки для соцсетей и sitemap появятся после выкладки.');

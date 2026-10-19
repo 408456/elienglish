@@ -1,0 +1,56 @@
+# Выкладка сайта на хостинг (SpaceWeb) при каждом push в main.
+# Папка site/ копируется по FTP в папку сайта на хостинге (меняются только изменённые файлы),
+# потом Яндекс и Bing получают сигнал IndexNow, что страницы обновились.
+#
+# Один раз: GitHub → Settings → Secrets and variables → Actions → New repository secret:
+#   FTP_SERVER    адрес FTP-сервера из панели SpaceWeb (например, ftp.ваш-логин.sweb.ru или IP)
+#   FTP_USERNAME  логин FTP-аккаунта, у которого домашняя папка = папка сайта (public_html)
+#   FTP_PASSWORD  пароль этого FTP-аккаунта
+#   FTP_PROTOCOL  необязательно: ftps (по умолчанию) или ftp, если хостинг не поддерживает шифрование
+# Пока секретов нет, выкладка просто пропускается.
+name: Выкладка на хостинг
+
+on:
+  push:
+    branches: [main]
+    paths: ['site/**', 'tools/site.config.mjs', '.github/workflows/deploy.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: hosting
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      HAS_FTP: ${{ secrets.FTP_SERVER != '' }}
+    steps:
+      - name: Хостинг ещё не подключён
+        if: env.HAS_FTP != 'true'
+        run: echo "Нет секретов FTP_SERVER, FTP_USERNAME, FTP_PASSWORD. Выкладка пропущена."
+
+      - uses: actions/checkout@v4
+        if: env.HAS_FTP == 'true'
+
+      - name: Выложить site/ на хостинг
+        if: env.HAS_FTP == 'true'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ${{ secrets.FTP_PROTOCOL || 'ftps' }}
+          local-dir: ./site/
+          server-dir: ./
+          # служебный файл со списком выложенного: закрыт от браузера правилами .htaccess
+          state-name: .ftp-deploy-sync-state.json
+
+      - uses: actions/setup-node@v4
+        if: env.HAS_FTP == 'true'
+        with:
+          node-version: 22
+
+      - name: Сообщить Яндексу и Bing об обновлении (IndexNow)
+        if: env.HAS_FTP == 'true'
+        run: node tools/indexnow.mjs

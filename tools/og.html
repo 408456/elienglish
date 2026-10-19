@@ -1,0 +1,42 @@
+<!doctype html>
+<!-- Шаблон картинки для мессенджеров (og-en.jpg, og-pl.jpg), 1200×630.
+     node tools/render.mjs "file:///.../tools/og.html?lang=pl" 1200 630 site/og-pl.jpg -->
+<html lang="ru" data-lang="en">
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="../site/assets/css/style.css">
+  <style>
+    html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; background: #fff; }
+    .og { position: relative; width: 1200px; height: 630px; }
+    .og__logo { position: absolute; left: 72px; top: 64px; font-size: 34px; }
+    .og__text { position: absolute; left: 72px; top: 170px; }
+    .og__title { font-size: 92px; line-height: 1; letter-spacing: -.04em; font-weight: 700; color: var(--ink); }
+    .og__title em { display: block; font-size: 1.1em; font-weight: 500; margin-top: 4px; }
+    .og__lead { margin-top: 44px; font-size: 25px; line-height: 1.45; color: var(--ink-2); }
+    .og__btn { display: inline-flex; align-items: center; margin-top: 22px; height: 64px; padding: 0 30px; border-radius: 999px;
+      background: var(--accent); color: #fff; font-size: 22px; font-weight: 700; }
+    .og__photo { position: absolute; right: 40px; bottom: 0; height: 520px; }
+  </style>
+</head>
+<body>
+  <div class="og">
+    <p class="logo og__logo"><span class="logo__mark">eli</span><span class="logo__word" id="word">english</span></p>
+    <div class="og__text">
+      <p class="og__title"><span id="subj">Английский</span><em id="slogan">раз и навсегда</em></p>
+      <p class="og__lead"><span id="lead">Частные уроки английского</span><br>Санкт-Петербург и онлайн</p>
+      <span class="og__btn">Первый урок бесплатно</span>
+    </div>
+    <img class="og__photo" id="photo" src="../site/assets/img/teacher-en-1100.webp" alt="">
+  </div>
+  <script>
+    if (new URLSearchParams(location.search).get('lang') === 'pl') {
+      document.documentElement.dataset.lang = 'pl';
+      document.getElementById('word').textContent = 'polski';
+      document.getElementById('subj').textContent = 'Польский';
+      document.getElementById('slogan').textContent = 'без границ';
+      document.getElementById('lead').textContent = 'Частные уроки польского';
+      document.getElementById('photo').src = '../site/assets/img/teacher-pl-1040.webp';
+    }
+  </script>
+</body>
+</html>

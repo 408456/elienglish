@@ -1,5 +1,5 @@
 // Рендер страницы в PNG через Edge без окна (для иконок и превью):
-// node tools/render.mjs <url> <ширина> <высота> <out.png> [transparent]
+// node tools/render.mjs <url> <ширина> <высота> <out.png или out.jpg> [transparent]
 import { spawn } from 'node:child_process';
 import { writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
@@ -31,7 +31,8 @@ await send('Page.navigate', { url });
 await sleep(800);
 await send('Runtime.evaluate', { expression: 'document.fonts.ready.then(() => true)', awaitPromise: true });
 await sleep(400);
-const shot = await send('Page.captureScreenshot', { format: 'png' });
+const jpeg = /\.jpe?g$/i.test(out); // .jpg: сжатый JPEG, иначе PNG
+const shot = await send('Page.captureScreenshot', jpeg ? { format: 'jpeg', quality: 88 } : { format: 'png' });
 writeFileSync(out, Buffer.from(shot.result.data, 'base64'));
 ws.close();
 proc.kill();
