@@ -3,12 +3,13 @@
  *
  * Как устроено:
  * - сайт отправляет заявку из формы сюда, она записывается в эту Google Таблицу (лист «Заявки»)
- *   и сразу приходит админам в Telegram карточкой с кнопками;
- * - админ в боте нажимает «Обновить» и видит все новые заявки;
+ *   и сразу приходит всем админам в Telegram карточкой с кнопками (уведомление само);
+ * - «Обновить» в боте показывает все необработанные заявки;
  * - «Ответить в Telegram» / «WhatsApp» открывают чат с человеком, где уже вписан шаблон ответа:
  *   остаётся нажать «Отправить» со своего аккаунта;
  * - статусы «В работе», «Записан», «Закрыта» пишутся в таблицу и видны всем админам;
- * - промокоды и реферальные ссылки создаются в боте и лежат на листах «Промокоды» и «Рефералы».
+ * - промокоды (код + скидка в %) создаются в боте и лежат на листе «Промокоды»;
+ *   сайт проверяет код запросом ?promo=КОД и сразу пересчитывает цены пакетов.
  *
  * Скрипт привязан к таблице: Расширения → Apps Script. Публикация: Начать развёртывание →
  * Веб-приложение, выполнять от моего имени, доступ: все.
@@ -21,7 +22,7 @@ const CONFIG = {
   WEBHOOK_SECRET: '',        // длинная случайная строка: Telegram присылает её в адресе
   OWNER_CODE: '',            // одноразовый код владельца бота
   ADMIN_USERNAMES: ['eligolc'], // станут админами, когда откроют бота (без @, маленькими буквами)
-  SITE_URL: 'https://408456.github.io/elienglish/', // для реферальных ссылок
+  SITE_URL: 'https://408456.github.io/elienglish/', // адрес сайта для ссылок в боте
   PERSONAL_TG: 'Eligolc',    // личный Telegram преподавателя
   TIMEZONE: 'Europe/Moscow',
 };
@@ -34,21 +35,24 @@ const DEFAULT_TEMPLATE =
 
 const SHEET_LEADS = 'Заявки';
 const SHEET_PROMO = 'Промокоды';
-const SHEET_REFS = 'Рефералы';
-const LEAD_HEADERS = ['№', 'Дата', 'Язык', 'Имя', 'Телефон', 'Telegram', 'Промокод', 'Реферал', 'Статус', 'Изменил', 'Когда', 'Сообщения бота'];
+const LEAD_HEADERS = ['№', 'Дата', 'Язык', 'Имя', 'Телефон', 'Telegram', 'Промокод', 'Скидка', 'Статус', 'Изменил', 'Когда', 'Сообщения бота'];
 // буквы латиницы (с польскими и европейскими) и кириллицы
 const LETTERS = 'A-Za-zÀ-ÖØ-öø-ɏЀ-ӿ';
 const NAME_RE = new RegExp('^[' + LETTERS + '][' + LETTERS + " .'-]*$");
 const HEADERS = {
   [SHEET_LEADS]: LEAD_HEADERS,
-  [SHEET_PROMO]: ['Код', 'Описание', 'Активен', 'Заявок'],
-  [SHEET_REFS]: ['Код', 'Кому', 'Ссылка', 'Заявок', 'Создан'],
+  [SHEET_PROMO]: ['Код', 'Описание', 'Активен', 'Заявок', 'Скидка, %'],
 };
-const COL = { id: 0, date: 1, lang: 2, name: 3, phone: 4, tg: 5, promo: 6, ref: 7, status: 8, by: 9, at: 10, msgs: 11 };
+// старые названия столбцов, которые можно заменить новыми (раньше 8-й столбец был «Реферал»)
+const OLD_HEADERS = ['Реферал'];
+const COL = { id: 0, date: 1, lang: 2, name: 3, phone: 4, tg: 5, promo: 6, off: 7, status: 8, by: 9, at: 10, msgs: 11 };
+const PCOL = { code: 0, desc: 1, active: 2, count: 3, off: 4 };
 
 // ---------------------------------------------------------------- вход
 
-function doGet() {
+function doGet(e) {
+  const params = (e && e.parameter) || {};
+  if (params.promo !== undefined) return json_(promoCheck_(String(params.promo)));
   return ContentService.createTextOutput('eli english: ok');
 }
 
@@ -83,37 +87,58 @@ function siteEntry_(raw) {
   const lead = {
     name: cleanText_(d.name, 60),
     phone: cleanText_(d.phone, 25),
-    tg: String(d.telegram || '').trim().replace(/^@/, ''),
-    lang: d.lang === 'pl' ? 'pl' : 'en',
+    tg: cleanTelegram_(d.telegram),
+    lang: d.lang === 'pl' ? 'польский' : 'английский',
     promo: String(d.promo || '').trim().toUpperCase(),
-    ref: String(d.ref || '').trim().toLowerCase(),
   };
   const errors = [];
-  if (lead.name.length < 2 || !NAME_RE.test(lead.name)) errors.push('name');
-  const digits = lead.phone.replace(/\D/g, '');
-  if (!/^\+?[\d\s()-]{10,25}$/.test(lead.phone) || digits.length < 10 || digits.length > 15) errors.push('phone');
-  if (lead.tg && !/^[A-Za-z0-9_]{4,32}$/.test(lead.tg)) errors.push('telegram');
+  if (!nameOk_(lead.name)) errors.push('name');
+  if (!phoneOk_(lead.phone)) errors.push('phone');
+  if (lead.tg && !/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(lead.tg)) errors.push('telegram');
   if (lead.promo && !/^[A-Z0-9_-]{2,20}$/.test(lead.promo)) errors.push('promo');
-  if (lead.ref && !/^[a-z0-9]{4,12}$/.test(lead.ref)) lead.ref = '';
   if (errors.length) return json_({ ok: false, error: 'fields', fields: errors });
 
-  withLock_(function () {
-    const id = saveLead_(lead);
-    notifyNewLead_(id);
-  });
+  const p = lead.promo ? promoInfo_(lead.promo) : null;
+  lead.off = p && p.active && p.off ? '−' + p.off + '%' : '';
+
+  // в замке только запись в таблицу, уведомления админам уже после него
+  withLock_(function () { saveLead_(lead); });
+  notifyNewLead_(lead);
   return json_({ ok: true });
+}
+
+// Те же правила проверяет сайт (site/assets/js/main.js).
+function nameOk_(name) {
+  const letters = (name.match(new RegExp('[' + LETTERS + ']', 'g')) || []).length;
+  return letters >= 2 && name.length <= 40 && NAME_RE.test(name) &&
+    name.split(' ').length <= 4 && !new RegExp('([' + LETTERS + '])\\1\\1', 'i').test(name);
+}
+
+// Россия и Казахстан: +7 и 10 цифр, код начинается с 3, 4, 7, 8 или 9. Другие страны: 10–15 цифр.
+function phoneOk_(phone) {
+  if (!/^\+?[\d\s()-]{10,25}$/.test(phone)) return false;
+  let d = phone.replace(/\D/g, '');
+  if (d.length === 11 && d.charAt(0) === '8') d = '7' + d.slice(1);
+  if (d.charAt(0) === '7') return d.length === 11 && /[34789]/.test(d.charAt(1)) && !/^(\d)\1+$/.test(d.slice(1));
+  return d.length >= 10 && d.length <= 15 && !/^(\d)\1+$/.test(d);
+}
+
+function cleanTelegram_(v) {
+  return String(v || '').trim().replace(/^(https?:\/\/)?(t\.me|telegram\.me)\//i, '').replace(/^@/, '');
 }
 
 function saveLead_(lead) {
   const sheet = sheet_(SHEET_LEADS);
   const props = PropertiesService.getScriptProperties();
-  const id = Number(props.getProperty('next_id') || 1);
-  props.setProperty('next_id', String(id + 1));
-  if (lead.promo) bumpCounter_(SHEET_PROMO, lead.promo, 3);
-  if (lead.ref) bumpCounter_(SHEET_REFS, lead.ref, 3);
-  sheet.appendRow([id, now_(), lead.lang === 'pl' ? 'польский' : 'английский', lead.name, lead.phone, lead.tg ? '@' + lead.tg : '',
-    lead.promo, lead.ref, STATUSES.n, '', '', ''].map(safe_));
-  return id;
+  lead.id = Number(props.getProperty('next_id') || 1);
+  props.setProperty('next_id', String(lead.id + 1));
+  if (lead.promo) bumpPromo_(lead.promo);
+  lead.date = now_();
+  lead.status = STATUSES.n;
+  sheet.appendRow([lead.id, lead.date, lead.lang, lead.name, lead.phone, lead.tg ? '@' + lead.tg : '',
+    lead.promo, lead.off, lead.status, '', '', ''].map(safe_));
+  lead.row = sheet.getLastRow();
+  lead.msgs = {};
 }
 
 // ---------------------------------------------------------------- Telegram
@@ -157,6 +182,24 @@ function tg_(method, payload) {
     return null;
   }
   return j.result;
+}
+
+// Один и тот же метод для нескольких чатов сразу (параллельно): уведомления приходят быстрее.
+function tgAll_(method, payloads) {
+  if (!payloads.length) return [];
+  const url = 'https://api.telegram.org/bot' + CONFIG.TOKEN + '/' + method;
+  const responses = UrlFetchApp.fetchAll(payloads.map(function (p) {
+    return { url: url, method: 'post', contentType: 'application/json', payload: JSON.stringify(p), muteHttpExceptions: true };
+  }));
+  return responses.map(function (res) {
+    let j = null;
+    try { j = JSON.parse(res.getContentText()); } catch (err) { /* нет ответа */ }
+    if (!j || !j.ok) {
+      console.warn(method + ': ' + (j && j.description ? j.description : 'нет ответа'));
+      return null;
+    }
+    return j.result;
+  });
 }
 
 function send_(chat, text, markup) {
@@ -218,10 +261,9 @@ function menu_(id) {
   const rows = [
     [{ text: 'Обновить' }, { text: 'В работе' }],
     [{ text: 'Все заявки' }, { text: 'Шаблон ответа' }],
-    [{ text: 'Промокоды' }, { text: 'Рефералы' }],
-    [{ text: 'Помощь' }],
+    [{ text: 'Промокоды' }, { text: 'Помощь' }],
   ];
-  if (isOwner_(id)) rows[3].push({ text: 'Админы' });
+  if (isOwner_(id)) rows[2].push({ text: 'Админы' });
   return { keyboard: rows, resize_keyboard: true, is_persistent: true };
 }
 
@@ -275,11 +317,11 @@ function greet_(id) {
   const open = leads_().filter(function (l) { return l.status === STATUSES.n; }).length;
   send_(id, 'Здравствуйте, ' + esc_(a.name) + '! Это кабинет заявок eli english' + (a.role === 'owner' ? ', вы владелец' : '') + '.\n\n' +
     '<b>Как пользоваться</b>\n' +
-    '• Заявки с сайта приходят сюда сами. «Обновить» покажет все новые.\n' +
+    '• Новые заявки приходят сюда сами, сразу после отправки на сайте. «Обновить» покажет все необработанные.\n' +
     '• «Ответить в Telegram» или «WhatsApp» откроют чат с человеком, где уже вписан шаблон ответа: проверьте и нажмите «Отправить».\n' +
     '• «В работе», «Записан», «Закрыта»: отметки для всех админов, они же пишутся в таблицу.\n' +
     '• «Шаблон ответа»: текст с вашими ссылками и условиями оплаты.\n' +
-    '• «Промокоды» и «Рефералы»: коды для скидок и ссылки «приведи друга».\n\n' +
+    '• «Промокоды»: коды со скидкой в процентах. На сайте цены пакетов пересчитываются сами.\n\n' +
     'Все заявки лежат в таблице: ' + esc_(SpreadsheetApp.getActive().getUrl()) +
     (open ? '\n\nНовых заявок сейчас: ' + open + '. Нажмите «Обновить».' : ''), menu_(id));
 }
@@ -287,13 +329,12 @@ function greet_(id) {
 function onAdminMessage_(id, text) {
   const cache = CacheService.getScriptCache();
   const state = cache.get('st_' + id);
-  const menuWords = ['Обновить', 'В работе', 'Все заявки', 'Шаблон ответа', 'Промокоды', 'Рефералы', 'Помощь', 'Админы', '/start', '/help', '/cancel'];
+  const menuWords = ['Обновить', 'В работе', 'Все заявки', 'Шаблон ответа', 'Промокоды', 'Помощь', 'Админы', '/start', '/help', '/cancel'];
 
   if (state && menuWords.indexOf(text) === -1) {
     cache.remove('st_' + id);
     if (state === 'te') return saveTemplate_(id, text);
     if (state === 'pa') return addPromo_(id, text);
-    if (state === 'ra') return addRef_(id, text);
     if (state === 'aa' && isOwner_(id)) return addAdmin_(id, text);
   }
   cache.remove('st_' + id);
@@ -305,7 +346,6 @@ function onAdminMessage_(id, text) {
     case 'Все заявки': return showAll_(id);
     case 'Шаблон ответа': return showTemplate_(id);
     case 'Промокоды': return showPromos_(id);
-    case 'Рефералы': return showRefs_(id);
     case 'Админы': if (isOwner_(id)) return showAdmins_(id); break;
     case '/cancel': return send_(id, 'Отменено.', menu_(id));
   }
@@ -324,7 +364,7 @@ function leads_() {
     out.push({
       row: i + 1, id: Number(r[COL.id]), date: String(r[COL.date]), lang: String(r[COL.lang]),
       name: unsafe_(r[COL.name]), phone: unsafe_(r[COL.phone]), tg: unsafe_(r[COL.tg]).replace(/^@/, ''),
-      promo: unsafe_(r[COL.promo]), ref: unsafe_(r[COL.ref]), status: String(r[COL.status] || STATUSES.n),
+      promo: unsafe_(r[COL.promo]), off: unsafe_(r[COL.off]), status: String(r[COL.status] || STATUSES.n),
       by: String(r[COL.by] || ''), at: String(r[COL.at] || ''), msgs: parseJson_(r[COL.msgs], {}),
     });
   }
@@ -342,12 +382,13 @@ function card_(l) {
   lines.push('Телефон: ' + esc_(l.phone || '-'));
   if (l.tg) lines.push('Telegram: @' + esc_(l.tg));
   if (l.promo) {
-    const p = findRow_(SHEET_PROMO, l.promo);
-    lines.push('Промокод: ' + esc_(l.promo) + (p ? (p[2] === 'да' ? ' (' + esc_(p[1]) + ')' : ' (выключен)') : ' <i>(такого кода нет)</i>'));
-  }
-  if (l.ref) {
-    const r = findRow_(SHEET_REFS, l.ref);
-    lines.push('По ссылке от: ' + (r ? esc_(r[1]) : 'неизвестно') + ' (' + esc_(l.ref) + ')');
+    let note = '';
+    if (/^−\d+%$/.test(l.off)) note = ' (' + l.off + ')';
+    else {
+      const p = promoInfo_(l.promo);
+      note = p ? (p.active ? '' : ' (выключен)') : ' <i>(такого кода нет)</i>';
+    }
+    lines.push('Промокод: ' + esc_(l.promo) + note);
   }
   lines.push('Пришла: ' + esc_(l.date));
   if (l.by) lines.push('Статус поставил(а): ' + esc_(l.by) + ', ' + esc_(l.at));
@@ -373,15 +414,15 @@ function urlWithText_(base, text) {
   return url.length <= 2000 ? url : base;
 }
 
-function notifyNewLead_(id) {
-  const l = leadById_(id);
-  if (!l) return;
+// Новая заявка сразу уходит всем админам одним параллельным запросом.
+function notifyNewLead_(l) {
   const c = card_(l);
+  const ids = Object.keys(admins_());
+  const sent = tgAll_('sendMessage', ids.map(function (admin) {
+    return { chat_id: Number(admin), text: 'Новая заявка с сайта\n\n' + c.text, parse_mode: 'HTML', disable_web_page_preview: true, reply_markup: c.markup };
+  }));
   const msgs = {};
-  Object.keys(admins_()).forEach(function (admin) {
-    const mid = send_(Number(admin), 'Новая заявка с сайта\n\n' + c.text, c.markup);
-    if (mid) msgs[admin] = mid;
-  });
+  ids.forEach(function (admin, i) { if (sent[i]) msgs[admin] = sent[i].message_id; });
   setCell_(l.row, COL.msgs, JSON.stringify(msgs));
 }
 
@@ -453,49 +494,87 @@ function saveTemplate_(id, text) {
 
 // ---------------------------------------------------------------- промокоды
 
+// Все промокоды из таблицы. Список держим в кэше 5 минут, чтобы сайт получал ответ быстрее.
+function promos_(fresh) {
+  const cache = CacheService.getScriptCache();
+  const hit = fresh ? null : cache.get('promos');
+  if (hit) return JSON.parse(hit);
+  const list = rows_(SHEET_PROMO).map(function (r) {
+    return {
+      code: String(r[PCOL.code]).toUpperCase(), desc: r[PCOL.desc], active: r[PCOL.active] === 'да',
+      count: Number(r[PCOL.count] || 0), off: promoOff_(r[PCOL.off], r[PCOL.desc]),
+    };
+  });
+  cache.put('promos', JSON.stringify(list), 300);
+  return list;
+}
+
+// Скидка из столбца «Скидка, %», а у старых кодов из описания вида «скидка 10%».
+function promoOff_(cell, desc) {
+  let n = Number(String(cell == null ? '' : cell).replace(/[^\d]/g, ''));
+  if (!n) {
+    const m = String(desc || '').match(/(\d{1,2})\s*%/);
+    n = m ? Number(m[1]) : 0;
+  }
+  return n >= 1 && n <= 50 ? n : 0;
+}
+
+function promoInfo_(code) {
+  code = String(code).toUpperCase();
+  return promos_().filter(function (p) { return p.code === code; })[0] || null;
+}
+
+// Ответ сайту на ?promo=КОД: { ok: true, code, off } или { ok: false }.
+function promoCheck_(raw) {
+  const code = String(raw).trim().toUpperCase();
+  if (!/^[A-Z0-9_-]{2,20}$/.test(code)) return { ok: false };
+  const cache = CacheService.getScriptCache();
+  const bucket = 'promo_' + Math.floor(Date.now() / 600000);
+  const n = Number(cache.get(bucket) || 0);
+  if (n >= 300) return { ok: false, error: 'too_many' }; // защита от перебора кодов
+  cache.put(bucket, String(n + 1), 700);
+  const p = promoInfo_(code);
+  if (!p || !p.active || !p.off) return { ok: false };
+  return { ok: true, code: p.code, off: p.off };
+}
+
+function bumpPromo_(code) {
+  const r = findRow_(SHEET_PROMO, code, true);
+  if (r) sheet_(SHEET_PROMO).getRange(r.row, PCOL.count + 1).setValue(Number(r.values[PCOL.count] || 0) + 1);
+}
+
 function showPromos_(id) {
-  const rows = rows_(SHEET_PROMO);
-  const lines = ['<b>Промокоды</b>', 'Человек вписывает код в форму на сайте, а в заявке видно, что это за код. Скидку вы считаете сами при оплате.'];
+  const list = promos_(true);
+  const lines = ['<b>Промокоды</b>', 'Человек вводит код на сайте, и цены всех пакетов сразу пересчитываются. ' +
+    'Скидка промокода прибавляется к скидке пакета. В заявке видно код и скидку.'];
   const kb = [];
-  if (!rows.length) lines.push('', 'Пока нет ни одного кода.');
-  rows.forEach(function (r) {
-    lines.push('', '<b>' + esc_(r[0]) + '</b>: ' + esc_(r[1]) + (r[2] === 'да' ? '' : ' <i>(выключен)</i>') + ', заявок: ' + Number(r[3] || 0));
-    kb.push([{ text: (r[2] === 'да' ? 'Выключить ' : 'Включить ') + r[0], callback_data: 'pt:' + r[0] }]);
+  if (!list.length) lines.push('', 'Пока нет ни одного кода.');
+  list.forEach(function (p) {
+    const note = p.desc && p.desc !== 'скидка ' + p.off + '%' ? ' · ' + esc_(p.desc) : '';
+    lines.push('', '<b>' + esc_(p.code) + '</b>: ' + (p.off ? '−' + p.off + '%' : '<i>скидка не указана</i>') + note +
+      (p.active ? '' : ' <i>(выключен)</i>') + ', заявок: ' + p.count);
+    kb.push([{ text: (p.active ? 'Выключить ' : 'Включить ') + p.code, callback_data: 'pt:' + p.code }]);
   });
   lines.push('', 'Ссылка сразу с кодом: ' + esc_(CONFIG.SITE_URL) + '?promo=КОД');
   kb.push([{ text: 'Добавить промокод', callback_data: 'pa' }]);
   send_(id, lines.join('\n'), { inline_keyboard: kb });
 }
 
+// «VESNA10 10» или «VESNA10 10 весенняя акция»
 function addPromo_(id, text) {
-  const m = String(text).trim().match(/^([A-Za-z0-9_-]{2,20})\s+(.{2,100})$/);
-  if (!m) return send_(id, 'Не понял. Пришлите так: КОД описание, например:\nVESNA10 скидка 10% на первый пакет', menu_(id));
+  const m = String(text).trim().match(/^([A-Za-z0-9_-]{2,20})\s+(.{1,100})$/);
+  const num = m ? m[2].match(/(\d{1,2})\s*%?/) : null;
+  const off = num ? Number(num[1]) : 0;
+  if (!m || off < 1 || off > 50) {
+    return send_(id, 'Не понял. Пришлите код и скидку в процентах (от 1 до 50), например:\nVESNA10 10', menu_(id));
+  }
   const code = m[1].toUpperCase();
   if (findRow_(SHEET_PROMO, code)) return send_(id, 'Такой код уже есть.', menu_(id));
-  sheet_(SHEET_PROMO).appendRow([code, cleanText_(m[2], 100), 'да', 0].map(safe_));
-  send_(id, 'Промокод <b>' + esc_(code) + '</b> добавлен.\nСсылка, где он уже вписан в форму:\n' + esc_(CONFIG.SITE_URL) + '?promo=' + esc_(code), menu_(id));
-}
-
-// ---------------------------------------------------------------- рефералы
-
-function showRefs_(id) {
-  const rows = rows_(SHEET_REFS);
-  const lines = ['<b>Реферальные ссылки</b>', 'Дайте ученику его ссылку: заявки тех, кто пришёл по ней, будут помечены его именем.'];
-  if (!rows.length) lines.push('', 'Пока нет ни одной ссылки.');
-  rows.forEach(function (r) {
-    lines.push('', '<b>' + esc_(r[1]) + '</b>: заявок ' + Number(r[3] || 0) + '\n' + esc_(r[2]));
-  });
-  send_(id, lines.join('\n'), { inline_keyboard: [[{ text: 'Создать ссылку', callback_data: 'ra' }]] });
-}
-
-function addRef_(id, text) {
-  const who = cleanText_(text, 60);
-  if (who.length < 2) return send_(id, 'Пришлите имя того, кому делаем ссылку, например: Анна Иванова', menu_(id));
-  let code;
-  do { code = randomCode_(6); } while (findRow_(SHEET_REFS, code));
-  const link = CONFIG.SITE_URL + '?ref=' + code;
-  sheet_(SHEET_REFS).appendRow([code, who, link, 0, now_()].map(safe_));
-  send_(id, 'Ссылка для ' + esc_(who) + ':\n' + esc_(link) + '\n\nПерешлите её ученику. Заявки по ней будут помечены «По ссылке от: ' + esc_(who) + '».', menu_(id));
+  const desc = cleanText_(m[2].replace(/^\d{1,2}\s*%?\s*/, ''), 100) || 'скидка ' + off + '%';
+  sheet_(SHEET_PROMO).appendRow([code, desc, 'да', 0, off].map(safe_));
+  promos_(true);
+  send_(id, 'Промокод <b>' + esc_(code) + '</b> добавлен: −' + off + '% к цене пакетов.\nСсылка, где он уже вписан:\n' +
+    esc_(CONFIG.SITE_URL) + '?promo=' + esc_(code), menu_(id));
 }
 
 // ---------------------------------------------------------------- админы
@@ -512,7 +591,7 @@ function showAdmins_(id) {
   const bound = JSON.parse(props.getProperty('bound') || '{}');
   const waiting = CONFIG.ADMIN_USERNAMES.concat(JSON.parse(props.getProperty('pending') || '[]'))
     .filter(function (u, i, arr) { return arr.indexOf(u) === i && bound[u] === undefined; });
-  if (waiting.length) lines.push('', 'Ещё не открыли бота: ' + waiting.map(function (u) { return '@' + esc_(u); }).join(', '));
+  if (waiting.length) lines.push('', 'Ещё не открыли бота (уведомления им не приходят): ' + waiting.map(function (u) { return '@' + esc_(u); }).join(', '));
   kb.push([{ text: 'Добавить админа', callback_data: 'aa' }]);
   send_(id, lines.join('\n'), { inline_keyboard: kb });
 }
@@ -572,17 +651,21 @@ function onCallback_(q) {
     }
     case 'te': answer_(q.id); cache.put('st_' + id, 'te', 3600); send_(id, 'Пришлите новый шаблон ответа одним сообщением. Можно {имя}, {языка}, {промокод}.', cancelKb_()); return;
     case 'tr': answer_(q.id, 'Вернул стандартный'); PropertiesService.getScriptProperties().deleteProperty('template'); return;
-    case 'pa': answer_(q.id); cache.put('st_' + id, 'pa', 3600); send_(id, 'Пришлите код и описание одним сообщением, например:\nVESNA10 скидка 10% на первый пакет', cancelKb_()); return;
+    case 'pa':
+      answer_(q.id);
+      cache.put('st_' + id, 'pa', 3600);
+      send_(id, 'Пришлите код и скидку в процентах одним сообщением, например:\nVESNA10 10\n\nМожно добавить описание: VESNA10 10 весенняя акция', cancelKb_());
+      return;
     case 'pt': {
       const r = findRow_(SHEET_PROMO, String(p[1] || '').toUpperCase(), true);
       if (!r) { answer_(q.id, 'Код не найден.'); return; }
-      const on = r.values[2] === 'да';
-      sheet_(SHEET_PROMO).getRange(r.row, 3).setValue(on ? 'нет' : 'да');
+      const on = r.values[PCOL.active] === 'да';
+      sheet_(SHEET_PROMO).getRange(r.row, PCOL.active + 1).setValue(on ? 'нет' : 'да');
+      promos_(true);
       answer_(q.id, on ? 'Выключен' : 'Включён');
       showPromos_(id);
       return;
     }
-    case 'ra': answer_(q.id); cache.put('st_' + id, 'ra', 3600); send_(id, 'Для кого ссылка? Пришлите имя, например: Анна Иванова', cancelKb_()); return;
     case 'aa':
       if (!isOwner_(id)) { answer_(q.id, 'Только для владельца.'); return; }
       answer_(q.id); cache.put('st_' + id, 'aa', 3600); send_(id, 'Пришлите имя нового админа в виде @username.', cancelKb_()); return;
@@ -622,6 +705,8 @@ function cancelKb_() {
 // ---------------------------------------------------------------- таблица
 
 // Лист по имени; если его нет, создаётся сразу со строкой заголовков.
+// Новые столбцы (например «Скидка, %») дописываются в заголовок сами, данные не трогаем.
+const headersChecked_ = {};
 function sheet_(name) {
   const headers = HEADERS[name];
   const ss = SpreadsheetApp.getActive();
@@ -633,7 +718,16 @@ function sheet_(name) {
       sh.setFrozenRows(1);
       sh.getRange(1, 1, 1, headers.length).setFontWeight('bold');
     }
+  } else if (headers && !headersChecked_[name]) {
+    const range = sh.getRange(1, 1, 1, headers.length);
+    const current = range.getValues()[0];
+    const replaceable = function (v) { return v === '' || v == null || OLD_HEADERS.indexOf(v) !== -1; };
+    if (headers.some(function (h, i) { return current[i] !== h && replaceable(current[i]); })) {
+      range.setValues([headers.map(function (h, i) { return replaceable(current[i]) ? h : current[i]; })]);
+      range.setFontWeight('bold');
+    }
   }
+  headersChecked_[name] = true;
   return sh;
 }
 
@@ -652,11 +746,6 @@ function findRow_(name, code, withRow) {
     }
   }
   return null;
-}
-
-function bumpCounter_(name, code, col) {
-  const r = findRow_(name, code, true);
-  if (r) sheet_(name).getRange(r.row, col + 1).setValue(Number(r.values[col] || 0) + 1);
 }
 
 function setCell_(row, col, value) {
@@ -706,20 +795,12 @@ function parseJson_(v, fallback) {
   try { return v ? JSON.parse(String(v)) : fallback; } catch (err) { return fallback; }
 }
 
-function randomCode_(len) {
-  const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
-  let s = '';
-  for (let i = 0; i < len; i++) s += chars.charAt(Math.floor(Math.random() * chars.length));
-  return s;
-}
-
 // ---------------------------------------------------------------- для запуска вручную
 
 // Проверка: в редакторе выберите checkSetup и нажмите «Выполнить».
 function checkSetup() {
   sheet_(SHEET_LEADS);
   sheet_(SHEET_PROMO);
-  sheet_(SHEET_REFS);
   const me = tg_('getMe', {});
   console.log(me ? 'Бот @' + me.username + ' на связи, листы таблицы готовы.' : 'Telegram не ответил: проверьте TOKEN в CONFIG.');
 }

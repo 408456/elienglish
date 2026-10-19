@@ -11,13 +11,16 @@ class Sheet {
   store(v) { return typeof v === 'string' && v.startsWith("'") ? v.slice(1) : v; } // как в Google: апостроф = «это текст»
   appendRow(row) { this.data.push(row.map((v) => this.store(v))); }
   getDataRange() { const d = this.data.length ? this.data : [['']]; return { getValues: () => d.map((r) => r.slice()) }; }
-  getRange(row, col) {
+  getRange(row, col, rows = 1, cols = 1) {
     const self = this;
     return {
       setValue(v) { while (self.data.length < row) self.data.push([]); self.data[row - 1][col - 1] = self.store(v); return this; },
+      getValues() { return [Array.from({ length: cols }, (_, i) => (self.data[row - 1] || [])[col - 1 + i] ?? '')]; },
+      setValues(v) { v[0].forEach((x, i) => { while (self.data.length < row) self.data.push([]); self.data[row - 1][col - 1 + i] = self.store(x); }); return this; },
       setFontWeight() { return this; },
     };
   }
+  getLastRow() { return this.data.length; }
   setFrozenRows() {}
 }
 const sheets = {};
@@ -25,6 +28,13 @@ const props = {};
 const cache = {};
 const calls = [];
 let mid = 100;
+function fakeFetch(url, opt) {
+  const method = url.split('/').pop();
+  const payload = JSON.parse(opt.payload);
+  calls.push([method, payload]);
+  const result = method === 'sendMessage' ? { message_id: ++mid } : method === 'getMe' ? { username: 'elienglish_requests_bot' } : true;
+  return { getContentText: () => JSON.stringify({ ok: true, result }), getResponseCode: () => 200 };
+}
 const sandbox = {
   console: { log() {}, warn() {}, error: (...a) => console.error('  [скрипт]', ...a) },
   SpreadsheetApp: { getActive: () => ({
@@ -41,13 +51,10 @@ const sandbox = {
     get: (k) => (k in cache ? cache[k] : null), put: (k, v) => { cache[k] = String(v); }, remove: (k) => { delete cache[k]; },
   }) },
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
-  UrlFetchApp: { fetch: (url, opt) => {
-    const method = url.split('/').pop();
-    const payload = JSON.parse(opt.payload);
-    calls.push([method, payload]);
-    const result = method === 'sendMessage' ? { message_id: ++mid } : method === 'getMe' ? { username: 'elienglish_requests_bot' } : true;
-    return { getContentText: () => JSON.stringify({ ok: true, result }), getResponseCode: () => 200 };
-  } },
+  UrlFetchApp: {
+    fetch: (url, opt) => fakeFetch(url, opt),
+    fetchAll: (reqs) => reqs.map((r) => fakeFetch(r.url, r)),
+  },
   ContentService: { MimeType: { JSON: 'json' }, createTextOutput: (t) => ({ text: t, setMimeType() { return this; } }) },
   HtmlService: { createHtmlOutput: (t) => ({ html: t }) },
   Utilities: { formatDate: () => '19.10.2026 10:00' },
@@ -107,6 +114,17 @@ r = site({ name: '=HYPERLINK("http://evil")', phone: '+79211234567' });
 check('формула вместо имени отклонена', r.error === 'fields' && r.fields.includes('name'));
 r = site({ name: 'Анна', phone: '123' });
 check('короткий телефон отклонён', r.fields && r.fields.includes('phone'));
+r = site({ name: 'Анна', phone: '+7 (111) 111-11-11' });
+check('несуществующий код +7 (111) отклонён', r.fields && r.fields.includes('phone'));
+r = site({ name: 'Анна', phone: '+7 (921) 123-45' });
+check('российский номер без двух цифр отклонён', r.fields && r.fields.includes('phone'));
+r = site({ name: 'аааа', phone: '+79211234567' });
+check('имя из одной буквы подряд отклонено', r.fields && r.fields.includes('name'));
+r = site({ name: 'Анна', phone: '+79211234567', telegram: 'abc' });
+check('слишком короткий ник отклонён', r.fields && r.fields.includes('telegram'));
+r = site({ name: 'Анна', phone: '+44 7911 123456', telegram: 'https://t.me/anna_uk' });
+check('иностранный номер и ссылка t.me приняты', r.ok === true && leads().slice(-1)[0][5] === '@anna_uk');
+sheets['Заявки'].data.pop();
 r = site({ name: 'Анна', phone: '+79211234567', promo: '=1+1' });
 check('мусорный промокод отклонён', r.fields && r.fields.includes('promo'));
 r = JSON.parse(sandbox.doPost({ parameter: {}, postData: { contents: 'x'.repeat(5000) } }).text);
@@ -141,24 +159,46 @@ check('«Текст ответа» присылает готовый текст'
 press(SISTER, 'tr');
 take();
 
-console.log('\nПромокоды и рефералы');
+console.log('\nПромокоды');
 press(SISTER, 'pa');
-msg(SISTER, 'VESNA10 скидка 10% на первый пакет');
-check('промокод добавлен в таблицу', sheets['Промокоды'].data[1][0] === 'VESNA10');
-press(SISTER, 'ra');
-msg(SISTER, 'Анна Иванова');
-const ref = sheets['Рефералы'].data[1];
-check('реферальная ссылка создана', /^[a-z2-9]{6}$/.test(ref[0]) && ref[2] === 'https://408456.github.io/elienglish/?ref=' + ref[0]);
+msg(SISTER, 'VESNA скидка без цифр');
+check('код без скидки не добавлен', !sheets['Промокоды'] || sheets['Промокоды'].data.length <= 1);
+press(SISTER, 'pa');
+msg(SISTER, 'vesna10 10 весенняя акция');
+check('промокод добавлен со скидкой', sheets['Промокоды'].data[1][0] === 'VESNA10' && Number(sheets['Промокоды'].data[1][4]) === 10 && sheets['Промокоды'].data[1][1] === 'весенняя акция');
+sheets['Промокоды'].data.push(['OLD5', 'скидка 5% на первый пакет', 'да', 0]); // код из старой версии, без столбца «Скидка, %»
+delete cache.promos;
 take();
-r = site({ name: 'Мария', phone: '+79001112233', lang: 'pl', promo: 'vesna10', ref: ref[0] });
+const get = (code) => JSON.parse(sandbox.doGet({ parameter: { promo: code } }).text);
+check('сайт: код действует, скидка 10%', JSON.stringify(get('vesna10')) === JSON.stringify({ ok: true, code: 'VESNA10', off: 10 }));
+check('сайт: старый код со скидкой из описания', get('OLD5').off === 5);
+check('сайт: неизвестный код', get('NOPE').ok === false);
+check('сайт: мусор вместо кода', get('<x>').ok === false);
+check('без параметра doGet отвечает как раньше', sandbox.doGet({ parameter: {} }).text === 'eli english: ok');
+r = site({ name: 'Мария', phone: '+79001112233', lang: 'pl', promo: 'vesna10', ref: 'abc123' });
 c = take();
 const t2 = to(c, SISTER)[0][1].text;
-check('в заявке видно промокод с описанием', r.ok && t2.includes('VESNA10 (скидка 10% на первый пакет)'));
-check('в заявке видно, чья ссылка', t2.includes('По ссылке от: Анна Иванова'));
-check('счётчики промокода и ссылки выросли', Number(sheets['Промокоды'].data[1][3]) === 1 && Number(sheets['Рефералы'].data[1][3]) === 1);
+check('в заявке видно промокод и скидку', r.ok && t2.includes('VESNA10 (−10%)'));
+check('скидка записана в таблицу', leads().slice(-1)[0][7] === '−10%');
+check('реферальных строк больше нет', !t2.includes('По ссылке'));
+check('счётчик промокода вырос', Number(sheets['Промокоды'].data[1][3]) === 1);
 press(SISTER, 'pt:VESNA10');
 check('промокод можно выключить', sheets['Промокоды'].data[1][2] === 'нет');
+check('выключенный код сайт не принимает', get('VESNA10').ok === false);
 take();
+msg(SISTER, 'Промокоды');
+check('в списке видно скидку', to(take(), SISTER).some(([, p]) => p.text.includes('VESNA10</b>: −10%')));
+msg(OWNER, 'Обновить');
+check('в меню нет «Рефералов»', !JSON.stringify(calls).includes('Рефералы'));
+take();
+
+console.log('\nСтарая таблица');
+check('у листа промокодов появился столбец «Скидка, %»', sheets['Промокоды'].data[0][4] === 'Скидка, %');
+sheets['Заявки'].data[0][7] = 'Реферал'; // заголовок из прошлой версии
+sheets['Промокоды'].data[0].length = 4;
+vm.runInContext('for (const k in headersChecked_) delete headersChecked_[k]; sheet_(SHEET_LEADS); sheet_(SHEET_PROMO);', sandbox);
+check('заголовок «Реферал» заменён на «Скидка»', sheets['Заявки'].data[0][7] === 'Скидка');
+check('в старый лист промокодов дописан столбец «Скидка, %»', sheets['Промокоды'].data[0][4] === 'Скидка, %');
 
 console.log('\nTelegram: защита');
 calls.length = 0;
