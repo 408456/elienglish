@@ -982,7 +982,6 @@ body.menu-open { overflow: hidden; }
 .gift__price b { font-size: clamp(30px, 2.8vw, 40px); line-height: 1; font-weight: 700; letter-spacing: -.04em; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .gift__price span { font-size: 14px; color: var(--block-faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .gift__price span:empty { display: none; }
-.gift__terms { font-size: 13.5px; line-height: 1.5; color: var(--block-faint); }
 
 /* ---------- Вопросы ---------- */
 
@@ -1358,7 +1357,6 @@ body.menu-open { overflow: hidden; }
   .gift__panel { border-radius: 26px; padding: 14px 14px 20px; }
   .cert { min-height: 250px; padding: 22px 20px 18px; }
   .gift__buy .btn { width: 100%; }
-  .gift__terms { padding: 0 4px; }
   .signup { border-radius: 26px; padding: 30px 18px 18px; }
   .signup__buttons { grid-template-columns: 1fr; }
   .faq__q { padding: 22px 0; }
