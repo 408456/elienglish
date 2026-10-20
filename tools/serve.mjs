@@ -4,7 +4,7 @@
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
-import { extname, join, normalize, basename } from 'node:path';
+import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../site/', import.meta.url));
@@ -32,7 +32,7 @@ for (const [, name, value] of htaccess.matchAll(/^\s*Header always set (\S+) "([
     ? value.replace(/;\s*upgrade-insecure-requests/, '') // локально сайт открыт по http
     : value;
 }
-const deniedFiles = [...htaccess.matchAll(/<FilesMatch "([^"]+)">\s*Require all denied/g)].map((m) => new RegExp(m[1]));
+const deniedPaths = [...htaccess.matchAll(/^RedirectMatch 404 "([^"]+)"/gm)].map((m) => new RegExp(m[1]));
 
 function send(res, status, headers, body) {
   res.writeHead(status, { ...securityHeaders, ...headers });
@@ -52,8 +52,9 @@ createServer(async (req, res) => {
 
   if (path === '' || path.endsWith('/') || path.endsWith('\\')) path += 'index.html';
   const file = join(root, path);
-  if (!file.startsWith(root) || path.split(/[/\\]/).some((part) => deniedFiles.some((re) => re.test(part))) || deniedFiles.some((re) => re.test(basename(file)))) {
-    send(res, 403, { 'Content-Type': 'text/plain; charset=utf-8' }, 'Доступ запрещён');
+  // как на хостинге: служебные файлы отвечают «не найдено»
+  if (!file.startsWith(root) || deniedPaths.some((re) => re.test(url.pathname))) {
+    send(res, 404, { 'Content-Type': types['.html'] }, await readFile(join(root, '404.html')));
     return;
   }
 

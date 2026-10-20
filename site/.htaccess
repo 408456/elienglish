@@ -10,39 +10,36 @@ Options -Indexes
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
+  # Адрес без www: www.site.ru -> site.ru (сразу на https, за один шаг)
+  RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+  RewriteRule ^ https://%1%{REQUEST_URI} [L,R=301]
+
   # Всегда HTTPS
   RewriteCond %{HTTPS} !=on
   RewriteCond %{HTTP:X-Forwarded-Proto} !https
   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-  # Адрес без www: www.site.ru -> site.ru
-  RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
-  RewriteRule ^ https://%1%{REQUEST_URI} [L,R=301]
+  # Ниже адреса пишем целиком с https: хостинг стоит за прокси и иначе подставит http
 
   # Старые ссылки ?lang=pl ведут на польскую страницу
   RewriteCond %{QUERY_STRING} (^|&)lang=pl(&|$)
-  RewriteRule ^$ /pl/? [L,R=301]
+  RewriteRule ^$ https://%{HTTP_HOST}/pl/? [L,R=301]
 
   # Без дублей: /index.html -> /, /pl/index.html -> /pl/
   RewriteCond %{THE_REQUEST} \s/+(.*/)?index\.html[\s?]
-  RewriteRule ^(.*/)?index\.html$ /$1 [L,R=301]
+  RewriteRule ^(.*/)?index\.html$ https://%{HTTP_HOST}/$1 [L,R=301]
 
   # /pl без слэша -> /pl/
-  RewriteRule ^pl$ /pl/ [L,R=301]
+  RewriteRule ^pl$ https://%{HTTP_HOST}/pl/ [L,R=301]
 </IfModule>
 
-# Служебные файлы не открываются из браузера
-<FilesMatch "^(config|config\.example|eli-config)\.php$">
-  Require all denied
-</FilesMatch>
-# скрытые файлы (.htaccess, .git, .env и т.п.)
-<FilesMatch "^\.">
-  Require all denied
-</FilesMatch>
-# резервные копии, журналы, архивы, исходники инструментов
-<FilesMatch "\.(bak|old|orig|save|swp|tmp|sql|log|ini|conf|sh|md|zip|tar|gz|7z|rar|mjs|json|lock)$">
-  Require all denied
-</FilesMatch>
+# Служебные файлы не открываются из браузера: отвечаем «не найдено».
+# RedirectMatch работает и на старом Apache 2.2 (SpaceWeb), и на новом.
+# скрытые файлы и папки (.htaccess, .git, .env и т.п.), кроме .well-known для SSL
+RedirectMatch 404 "/\.(?!well-known/)"
+# настройки, резервные копии, журналы, архивы, исходники инструментов
+RedirectMatch 404 "/(config|config\.example|eli-config)\.php$"
+RedirectMatch 404 "\.(bak|old|orig|save|swp|tmp|sql|log|ini|conf|sh|md|zip|tar|gz|7z|rar|mjs|json|lock)$"
 
 # Сжатие: страница грузится быстрее
 <IfModule mod_deflate.c>
