@@ -1196,7 +1196,7 @@ body.menu-open { overflow: hidden; }
   .hero__buttons .btn { width: 100%; }
   .hero__photo { height: 420px; min-height: 0; }
   .hero__img { height: 100%; }
-  .hero__img--pl { height: 92%; }
+  .hero__img--en { height: 92%; }
   .facts__item { padding: 22px 8px 22px 0; }
   .facts__item + .facts__item { padding-left: 14px; }
   .facts__label { font-size: 13.5px; }

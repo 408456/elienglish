@@ -41,12 +41,12 @@ const PL = {
     footerSlogan: 'Польский <em>без&nbsp;границ</em>.'
   },
   heroImg: `<img class="hero__img hero__img--pl"
-              src="assets/img/teacher-pl-1040.webp"
-              srcset="assets/img/teacher-pl-640.webp 640w, assets/img/teacher-pl-1040.webp 1040w"
+              src="assets/img/teacher-pl-v2-1100.webp"
+              srcset="assets/img/teacher-pl-v2-680.webp 680w, assets/img/teacher-pl-v2-1100.webp 1100w"
               sizes="(max-width: 760px) 380px, 560px"
-              width="1040" height="1014"
+              width="1100" height="1152"
               alt="Преподаватель польского языка" fetchpriority="high" decoding="async">`,
-  preload: `<link rel="preload" as="image" href="assets/img/teacher-pl-1040.webp" imagesrcset="assets/img/teacher-pl-640.webp 640w, assets/img/teacher-pl-1040.webp 1040w" imagesizes="(max-width: 760px) 380px, 560px" fetchpriority="high">`
+  preload: `<link rel="preload" as="image" href="assets/img/teacher-pl-v2-1100.webp" imagesrcset="assets/img/teacher-pl-v2-680.webp 680w, assets/img/teacher-pl-v2-1100.webp 1100w" imagesizes="(max-width: 760px) 380px, 560px" fetchpriority="high">`
 };
 
 // Данные для разметки schema.org
