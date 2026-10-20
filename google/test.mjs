@@ -93,7 +93,7 @@ check('@Eligolc стала админом сама', sandbox.isAdmin_(SISTER) &&
 take();
 
 console.log('\nЗаявка с сайта');
-let r = site({ name: 'Анна', phone: '+7 (921) 123-45-67', telegram: '@anna_test', lang: 'en' });
+let r = site({ name: 'Анна', phone: '+7 (921) 123-45-67', telegram: '@anna_test', lang: 'en', source: 'avito / cpc' });
 check('сайт получил ok', r.ok === true);
 check('заявка записана в таблицу', leads().length === 1 && leads()[0][3] === 'Анна' && leads()[0][4] === '+7 (921) 123-45-67' && leads()[0][8] === 'Новая');
 let c = take();
@@ -104,6 +104,8 @@ const tgBtn = btns.find((b) => b.text === 'Ответить в Telegram');
 check('кнопка «Ответить в Telegram» с готовым текстом', tgBtn && tgBtn.url.startsWith('https://t.me/anna_test?text=') && decodeURIComponent(tgBtn.url).includes('Анна'));
 check('кнопка WhatsApp на номер', btns.some((b) => b.text === 'WhatsApp' && b.url.startsWith('https://wa.me/79211234567?text=')));
 check('кнопки статусов', btns.some((b) => b.callback_data === 's:1:w'));
+check('источник записан в таблицу', leads()[0][12] === 'avito / cpc');
+check('в карточке видно, откуда заявка', card[1].text.includes('Откуда: avito / cpc'));
 
 console.log('\nЗащита формы');
 r = site({ name: 'Анна', phone: '+7 921 123-45-67', website: 'http://spam' });
@@ -192,6 +194,13 @@ msg(OWNER, 'Обновить');
 check('в меню нет «Рефералов»', !JSON.stringify(calls).includes('Рефералы'));
 take();
 
+console.log('\nИсточники');
+msg(SISTER, 'Источники');
+const srcText = to(take(), SISTER).map(([, p]) => p.text).join('\n');
+check('«Источники» считает заявки по меткам', srcText.includes('avito / cpc: 1 / 1'));
+check('заявки без метки идут в «не указан»', srcText.includes('не указан: 1 / 1'));
+check('дата из таблицы читается', sandbox.dateOf_('20.10.2026 10:00') === new Date(2026, 9, 20).getTime() && sandbox.dateOf_('мусор') === 0);
+
 console.log('\nСтарая таблица');
 check('у листа промокодов появился столбец «Скидка, %»', sheets['Промокоды'].data[0][4] === 'Скидка, %');
 sheets['Заявки'].data[0][7] = 'Реферал'; // заголовок из прошлой версии
@@ -199,6 +208,9 @@ sheets['Промокоды'].data[0].length = 4;
 vm.runInContext('for (const k in headersChecked_) delete headersChecked_[k]; sheet_(SHEET_LEADS); sheet_(SHEET_PROMO);', sandbox);
 check('заголовок «Реферал» заменён на «Скидка»', sheets['Заявки'].data[0][7] === 'Скидка');
 check('в старый лист промокодов дописан столбец «Скидка, %»', sheets['Промокоды'].data[0][4] === 'Скидка, %');
+sheets['Заявки'].data[0].length = 12; // таблица до столбца «Источник»
+vm.runInContext('for (const k in headersChecked_) delete headersChecked_[k]; sheet_(SHEET_LEADS);', sandbox);
+check('в старую таблицу заявок дописан столбец «Источник»', sheets['Заявки'].data[0][12] === 'Источник');
 
 console.log('\nTelegram: защита');
 calls.length = 0;

@@ -35,7 +35,7 @@ const DEFAULT_TEMPLATE =
 
 const SHEET_LEADS = 'Заявки';
 const SHEET_PROMO = 'Промокоды';
-const LEAD_HEADERS = ['№', 'Дата', 'Язык', 'Имя', 'Телефон', 'Telegram', 'Промокод', 'Скидка', 'Статус', 'Изменил', 'Когда', 'Сообщения бота'];
+const LEAD_HEADERS = ['№', 'Дата', 'Язык', 'Имя', 'Телефон', 'Telegram', 'Промокод', 'Скидка', 'Статус', 'Изменил', 'Когда', 'Сообщения бота', 'Источник'];
 // буквы латиницы (с польскими и европейскими) и кириллицы
 const LETTERS = 'A-Za-zÀ-ÖØ-öø-ɏЀ-ӿ';
 const NAME_RE = new RegExp('^[' + LETTERS + '][' + LETTERS + " .'-]*$");
@@ -45,7 +45,7 @@ const HEADERS = {
 };
 // старые названия столбцов, которые можно заменить новыми (раньше 8-й столбец был «Реферал»)
 const OLD_HEADERS = ['Реферал'];
-const COL = { id: 0, date: 1, lang: 2, name: 3, phone: 4, tg: 5, promo: 6, off: 7, status: 8, by: 9, at: 10, msgs: 11 };
+const COL = { id: 0, date: 1, lang: 2, name: 3, phone: 4, tg: 5, promo: 6, off: 7, status: 8, by: 9, at: 10, msgs: 11, src: 12 };
 const PCOL = { code: 0, desc: 1, active: 2, count: 3, off: 4 };
 
 // ---------------------------------------------------------------- вход
@@ -90,6 +90,8 @@ function siteEntry_(raw) {
     tg: cleanTelegram_(d.telegram),
     lang: d.lang === 'pl' ? 'польский' : 'английский',
     promo: String(d.promo || '').trim().toUpperCase(),
+    // откуда пришёл человек: метка из ссылки (?from=avito) или сайт, с которого перешли
+    src: cleanText_(d.source, 80),
   };
   const errors = [];
   if (!nameOk_(lead.name)) errors.push('name');
@@ -136,7 +138,7 @@ function saveLead_(lead) {
   lead.date = now_();
   lead.status = STATUSES.n;
   sheet.appendRow([lead.id, lead.date, lead.lang, lead.name, lead.phone, lead.tg ? '@' + lead.tg : '',
-    lead.promo, lead.off, lead.status, '', '', ''].map(safe_));
+    lead.promo, lead.off, lead.status, '', '', '', lead.src].map(safe_));
   lead.row = sheet.getLastRow();
   lead.msgs = {};
 }
@@ -261,9 +263,10 @@ function menu_(id) {
   const rows = [
     [{ text: 'Обновить' }, { text: 'В работе' }],
     [{ text: 'Все заявки' }, { text: 'Шаблон ответа' }],
-    [{ text: 'Промокоды' }, { text: 'Помощь' }],
+    [{ text: 'Промокоды' }, { text: 'Источники' }],
+    [{ text: 'Помощь' }],
   ];
-  if (isOwner_(id)) rows[2].push({ text: 'Админы' });
+  if (isOwner_(id)) rows[3].push({ text: 'Админы' });
   return { keyboard: rows, resize_keyboard: true, is_persistent: true };
 }
 
@@ -321,7 +324,8 @@ function greet_(id) {
     '• «Ответить в Telegram» или «WhatsApp» откроют чат с человеком, где уже вписан шаблон ответа: проверьте и нажмите «Отправить».\n' +
     '• «В работе», «Записан», «Закрыта»: отметки для всех админов, они же пишутся в таблицу.\n' +
     '• «Шаблон ответа»: текст с вашими ссылками и условиями оплаты.\n' +
-    '• «Промокоды»: коды со скидкой в процентах. На сайте цены пакетов пересчитываются сами.\n\n' +
+    '• «Промокоды»: коды со скидкой в процентах. На сайте цены пакетов пересчитываются сами.\n' +
+    '• «Источники»: откуда пришли заявки (реклама, поиск, ссылки с меткой).\n\n' +
     'Все заявки лежат в таблице: ' + esc_(SpreadsheetApp.getActive().getUrl()) +
     (open ? '\n\nНовых заявок сейчас: ' + open + '. Нажмите «Обновить».' : ''), menu_(id));
 }
@@ -329,7 +333,7 @@ function greet_(id) {
 function onAdminMessage_(id, text) {
   const cache = CacheService.getScriptCache();
   const state = cache.get('st_' + id);
-  const menuWords = ['Обновить', 'В работе', 'Все заявки', 'Шаблон ответа', 'Промокоды', 'Помощь', 'Админы', '/start', '/help', '/cancel'];
+  const menuWords = ['Обновить', 'В работе', 'Все заявки', 'Шаблон ответа', 'Промокоды', 'Источники', 'Помощь', 'Админы', '/start', '/help', '/cancel'];
 
   if (state && menuWords.indexOf(text) === -1) {
     cache.remove('st_' + id);
@@ -346,6 +350,7 @@ function onAdminMessage_(id, text) {
     case 'Все заявки': return showAll_(id);
     case 'Шаблон ответа': return showTemplate_(id);
     case 'Промокоды': return showPromos_(id);
+    case 'Источники': return showSources_(id);
     case 'Админы': if (isOwner_(id)) return showAdmins_(id); break;
     case '/cancel': return send_(id, 'Отменено.', menu_(id));
   }
@@ -366,6 +371,7 @@ function leads_() {
       name: unsafe_(r[COL.name]), phone: unsafe_(r[COL.phone]), tg: unsafe_(r[COL.tg]).replace(/^@/, ''),
       promo: unsafe_(r[COL.promo]), off: unsafe_(r[COL.off]), status: String(r[COL.status] || STATUSES.n),
       by: String(r[COL.by] || ''), at: String(r[COL.at] || ''), msgs: parseJson_(r[COL.msgs], {}),
+      src: unsafe_(r[COL.src]),
     });
   }
   return out;
@@ -390,6 +396,7 @@ function card_(l) {
     }
     lines.push('Промокод: ' + esc_(l.promo) + note);
   }
+  if (l.src) lines.push('Откуда: ' + esc_(l.src));
   lines.push('Пришла: ' + esc_(l.date));
   if (l.by) lines.push('Статус поставил(а): ' + esc_(l.by) + ', ' + esc_(l.at));
 
@@ -463,6 +470,37 @@ function showAll_(id) {
   });
   rows.push([{ text: 'Открыть таблицу со всеми заявками', url: SpreadsheetApp.getActive().getUrl() }]);
   send_(id, '<b>Последние заявки</b>\nНажмите на заявку, чтобы открыть её.', { inline_keyboard: rows });
+}
+
+// Сколько заявок дал каждый источник: за 30 дней и за всё время, и сколько из них записались.
+function showSources_(id) {
+  const list = leads_();
+  if (!list.length) return send_(id, 'Заявок пока нет.', menu_(id));
+  const monthAgo = Date.now() - 30 * 864e5;
+  const stats = {};
+  list.forEach(function (l) {
+    const key = l.src || 'не указан';
+    const s = stats[key] || (stats[key] = { all: 0, month: 0, booked: 0 });
+    s.all++;
+    if (dateOf_(l.date) >= monthAgo) s.month++;
+    if (l.status === STATUSES.b) s.booked++;
+  });
+  const keys = Object.keys(stats).sort(function (a, b) { return stats[b].month - stats[a].month || stats[b].all - stats[a].all; });
+  const lines = ['<b>Откуда заявки</b>', 'За 30 дней / за всё время. В скобках: сколько из них записались.', ''];
+  keys.slice(0, 30).forEach(function (k) {
+    const s = stats[k];
+    lines.push(esc_(k) + ': ' + s.month + ' / ' + s.all + (s.booked ? ' (' + s.booked + ')' : ''));
+  });
+  lines.push('', 'Ссылка с меткой для рекламы: ' + esc_(CONFIG.SITE_URL) + '?from=avito (вместо avito любое слово латиницей).');
+  send_(id, lines.join('\n'), menu_(id));
+}
+
+// «20.10.2026 10:00» → время в миллисекундах (0, если не разобрать)
+function dateOf_(s) {
+  const m = String(s).match(/^(\d{2})\.(\d{2})\.(\d{4})/);
+  if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1])).getTime();
+  const t = Date.parse(String(s));
+  return isNaN(t) ? 0 : t;
 }
 
 // ---------------------------------------------------------------- шаблон ответа

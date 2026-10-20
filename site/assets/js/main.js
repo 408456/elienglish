@@ -66,6 +66,49 @@
     else if (a.href.indexOf('tel:') === 0) goal('call');
   });
 
+  /* ---------- Откуда пришёл человек ---------- */
+
+  // Метка из ссылки (?from=avito или ?utm_source=avito&utm_campaign=...), реклама Директа
+  // и Google или сайт, с которого перешли (поиск Яндекса, Telegram, ВКонтакте...).
+  // Помним 90 дней и отправляем вместе с заявкой: в боте и в таблице видно, откуда она.
+  // Метка из ссылки всегда главнее; прямой заход старый источник не стирает.
+  var SOURCE_KEY = 'eli-source';
+  var SITES = [
+    [/(^|\.)yandex\.|(^|\.)ya\.ru$/, 'Яндекс'], [/(^|\.)google\./, 'Google'], [/(^|\.)bing\.com$/, 'Bing'],
+    [/(^|\.)(t\.me|telegram\.(me|org))$/, 'Telegram'], [/(^|\.)(vk\.com|vk\.ru)$/, 'ВКонтакте'],
+    [/(^|\.)avito\.ru$/, 'Авито'], [/(^|\.)instagram\.com$/, 'Instagram'], [/(^|\.)2gis\./, '2ГИС'],
+    [/(^|\.)(whatsapp\.com|wa\.me)$/, 'WhatsApp'], [/(^|\.)mail\.ru$/, 'Mail.ru'], [/(^|\.)dzen\.ru$/, 'Дзен']
+  ];
+
+  function cleanTag(v) { return String(v || '').replace(/[^\p{L}\p{N} ._\/-]/gu, '').trim().slice(0, 40); }
+
+  var source = (function () {
+    var p = new URLSearchParams(location.search);
+    var tag = [cleanTag(p.get('from') || p.get('utm_source')), cleanTag(p.get('utm_medium')), cleanTag(p.get('utm_campaign'))]
+      .filter(Boolean).join(' / ');
+    if (!tag && p.get('yclid')) tag = 'Яндекс Директ';
+    if (!tag && p.get('gclid')) tag = 'Google Ads';
+    var ref = '';
+    try {
+      var host = document.referrer ? new URL(document.referrer).hostname.replace(/^www\./, '') : '';
+      if (host && host !== location.hostname) {
+        ref = host;
+        SITES.forEach(function (s) { if (s[0].test(host)) ref = s[1]; });
+      }
+    } catch (e) {}
+    var saved = null;
+    try {
+      saved = JSON.parse(localStorage.getItem(SOURCE_KEY) || 'null');
+      if (saved && !(Date.now() - saved.at < 90 * 864e5)) saved = null;
+    } catch (e) {}
+    var now = tag || (!saved && ref);
+    if (now) {
+      saved = { src: now, at: Date.now() };
+      try { localStorage.setItem(SOURCE_KEY, JSON.stringify(saved)); } catch (e) {}
+    }
+    return saved ? saved.src : 'прямой заход';
+  })();
+
   /* ---------- Плавная смена чисел ---------- */
 
   function tweenNumber(el, to) {
@@ -297,11 +340,24 @@
     updatePromoBtn();
   })();
 
-  /* ---------- Нижний блок: сообщение преподавателю в Telegram ---------- */
+  /* ---------- Сообщения преподавателю в Telegram ---------- */
+
+  // Все кнопки «Написать в Telegram» открывают чат с Елизаветой, где уже вписано сообщение:
+  // человеку остаётся нажать «Отправить».
+  var HELLO = 'Здравствуйте, Елизавета! ';
 
   function tgLink(text) {
     return 'https://t.me/' + PERSONAL_TG + (text ? '?text=' + encodeURIComponent(text) : '');
   }
+
+  function trialText() {
+    return HELLO + 'Хочу записаться на бесплатный пробный урок ' + subjGen() + '.';
+  }
+
+  // data-tg="trial": запись на пробный урок, data-tg="question": вопрос
+  document.querySelectorAll('a[data-tg]').forEach(function (a) {
+    a.href = tgLink(a.dataset.tg === 'question' ? HELLO + 'У меня вопрос про уроки ' + subjGen() + ': ' : trialText());
+  });
 
   var signupName = document.getElementById('signup-name');
   var signupMsg = document.getElementById('signup-message');
@@ -322,7 +378,7 @@
     var name = signupName.value.trim().replace(/\s+/g, ' ');
     var who = checked('who') === 'kid' ? 'ребёнок' : 'взрослый';
     var fmt = checked('fmt') === 'offline' ? 'лично' : 'онлайн';
-    var msg = 'Здравствуйте! ' +
+    var msg = HELLO +
       (name ? 'Меня зовут ' + name + '. ' : '') +
       'Хочу записаться на бесплатный пробный урок ' + subjGen() + '. ' +
       'Кто будет заниматься: ' + who + '. Формат: ' + fmt + '.' +
@@ -534,7 +590,7 @@
   // предлагаем отправить ту же заявку преподавателю в Telegram готовым сообщением.
   var trialFallback = document.getElementById('trial-fallback');
   function showFallback(p) {
-    trialFallback.href = tgLink('Здравствуйте! Меня зовут ' + p.name + '. Хочу записаться на бесплатный пробный урок ' + subjGen() +
+    trialFallback.href = tgLink(HELLO + 'Меня зовут ' + p.name + '. Хочу записаться на бесплатный пробный урок ' + subjGen() +
       '. Мой телефон: ' + p.phone + '.' + (p.telegram ? ' Telegram: @' + p.telegram + '.' : '') + (p.promo ? ' Промокод: ' + p.promo + '.' : ''));
     showState(stateErr);
   }
@@ -588,6 +644,7 @@
       promo: normCode(formPromo.value),
       website: form.elements.website.value,
       lang: state.lang,
+      source: source,
       elapsed: Date.now() - formShownAt
     };
 
