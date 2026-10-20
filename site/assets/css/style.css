@@ -1110,12 +1110,14 @@ body.menu-open { overflow: hidden; }
 .price:nth-child(4) { --d: .21s; }
 
 .js .hero__eyebrow,
-.js .hero__lead,
 .js .hero__buttons {
   opacity: 0;
   transform: translateY(18px);
   transition: opacity 1s var(--ease), transform 1s var(--ease);
 }
+/* подзаголовок виден сразу, только мягко подъезжает: так Google считает первый экран
+   загруженным раньше (показатель LCP), а на вид почти то же самое */
+.js .hero__lead { transform: translateY(18px); transition: transform 1s var(--ease); }
 .js .hero__title .line > span { transform: translateY(110%); transition: transform 1.1s var(--ease); }
 .js .hero__photo { opacity: 0; transform: translateY(24px); transition: opacity 1.4s var(--ease), transform 1.6s var(--ease); }
 
