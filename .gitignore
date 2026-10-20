@@ -23,6 +23,9 @@ design-package.md
 идеи-для-документа.md
 .claude/
 
+# Подарочные сертификаты и их реестр: там имена людей (tools/certificate.mjs)
+certificates/
+
 # Архивы для выкладки на хостинг
 *.zip
 *.tar.gz

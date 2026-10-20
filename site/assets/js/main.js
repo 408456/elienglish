@@ -29,28 +29,73 @@
     { n: 5, off: 0, sub: 'Попробуете формат', term: '≈ 2,5 недели, 2 урока в неделю', report: false, freeze: false }
   ];
 
+  // Программы под цель: готовый план на известное число уроков.
+  // Скидка такая же, как у абонемента того же размера (offFor ниже).
+  var PROGRAMS = {
+    en: [
+      { id: 'kickoff', name: 'Kick-off', tag: 'Спринт A0 → A1', title: 'Английский с нуля', n: 24, term: '≈ 3 месяца, 2 урока в неделю',
+        points: ['Расскажете о себе, семье и работе', 'Закажете еду, купите билет, спросите дорогу', 'Поймёте простую речь, если говорят не спеша'] },
+      { id: 'levelup', name: 'Level up', tag: 'Спринт A1 → A2', title: 'Уверенная база', n: 24, term: '≈ 3 месяца, 2 урока в неделю',
+        points: ['Поддержите разговор на бытовые темы', 'Расскажете, что было, и обсудите планы', 'Напишете письмо или сообщение без переводчика'] },
+      { id: 'boarding', name: 'Boarding pass', tag: 'Путешествия', title: 'Английский в дорогу', n: 10, term: '≈ 5 недель, 2 урока в неделю',
+        points: ['Аэропорт, отель, такси, кафе, магазин', 'Слова и фразы под ваш маршрут', 'Что сказать, если что-то пошло не так'] },
+      { id: 'offer', name: 'Job offer', tag: 'Работа', title: 'Собеседование на английском', n: 12, term: '≈ 6 недель, 2 урока в неделю',
+        points: ['Рассказ о себе и своём опыте', 'Ответы на частые вопросы работодателя', 'Пробное собеседование с разбором'] }
+    ],
+    pl: [
+      { id: 'karta', name: 'Karta Polaka', tag: 'Собеседование', title: 'Собеседование на Карту поляка', n: 16, term: '≈ 2 месяца, 2 урока в неделю',
+        points: ['Уверенный рассказ о себе и своей семье', 'История, традиции, праздники и география Польши', 'Пробные собеседования, как у консула'] },
+      { id: 'witaj', name: 'Witaj w Polsce', tag: 'Переезд', title: 'Польский для переезда', n: 20, term: '≈ 2,5 месяца, 2 урока в неделю',
+        points: ['Документы, банк, аренда жилья, врач', 'Разговор с соседями и коллегами', 'Заявления и письма на польском'] },
+      { id: 'praca', name: 'Praca', tag: 'Работа', title: 'Собеседование с работодателем', n: 12, term: '≈ 6 недель, 2 урока в неделю',
+        points: ['Рассказ о себе и своём опыте', 'Ответы на частые вопросы работодателя', 'Пробное собеседование с разбором'] },
+      { id: 'b1', name: 'Certyfikat B1', tag: 'Экзамен', title: 'Государственный экзамен B1', n: 24, term: '≈ 3 месяца, 2 урока в неделю',
+        points: ['Все пять частей: аудирование, чтение, грамматика, письмо, речь', 'Пробные экзамены на время', 'Сертификат B1 нужен, например, для гражданства'] }
+    ]
+  };
+
+  // Подарочный сертификат: уроки по 60 минут, скидка как у абонемента того же размера.
+  var GIFTS = [5, 10, 20];
+
   var state = {
     lang: root.dataset.lang === 'pl' ? 'pl' : 'en',
     format: 'online',
     dur: 60,
-    pack: null,
+    choice: null, // абонемент или программа, которую выбрали в ценах: { label, msg }
+    giftN: 10,
+    giftFormat: 'online',
     promo: null // { code: 'VESNA10', off: 10 }, когда код проверен
   };
 
   var nf = new Intl.NumberFormat('ru-RU');
   function rub(n) { return nf.format(n) + ' ₽'; }
 
+  // 1 урок, 2 урока, 5 уроков, 21 урок
+  function lessons(n) {
+    var d = n % 10, h = n % 100;
+    return n + (d === 1 && h !== 11 ? ' урок' : d >= 2 && d <= 4 && (h < 12 || h > 14) ? ' урока' : ' уроков');
+  }
+
   function lessonPrice(lang, format, dur) {
     return BASE[lang][dur] + (format === 'offline' ? OFFLINE_EXTRA : 0);
   }
 
-  // Скидка промокода прибавляется к скидке пакета: 15% + 10% = 25%.
-  function packPrice(pack) {
-    var full = lessonPrice(state.lang, state.format, state.dur);
-    var off = Math.min(pack.off + (state.promo ? state.promo.off : 0), 60);
-    var per = Math.floor(full * (100 - off) / 100 / 10) * 10;
-    return { per: per, total: per * pack.n, full: full * pack.n, off: off };
+  // скидка за количество уроков, как у абонементов: 40 → 15%, 20 → 10%, 10 → 5%
+  function offFor(n) {
+    var off = 0;
+    PACKS.forEach(function (p) { if (n >= p.n && p.off > off) off = p.off; });
+    return off;
   }
+
+  // Скидка промокода прибавляется к скидке пакета: 15% + 10% = 25%.
+  function priceFor(n, off, format, dur, promo) {
+    var full = lessonPrice(state.lang, format, dur);
+    off = Math.min(off + (promo ? promo.off : 0), 60);
+    var per = Math.floor(full * (100 - off) / 100 / 10) * 10;
+    return { per: per, total: per * n, full: full * n, off: off };
+  }
+
+  function packPrice(n, off) { return priceFor(n, off, state.format, state.dur, state.promo); }
 
   /* ---------- Цели Яндекс Метрики (работают, только если она подключена) ---------- */
 
@@ -142,23 +187,45 @@
       '<span class="price__hint">' + hint + '</span></li>';
   }
 
+  function wasHtml(c) {
+    return c.off ? '<s>' + rub(c.full) + '</s><span class="price__off">−' + c.off + '%</span>' : 'без скидки';
+  }
+
   function buildPricing() {
     pricingEl.innerHTML = PACKS.map(function (p) {
       return (
         '<article class="price reveal' + (p.best ? ' price--best' : '') + '">' +
-          '<h3 class="price__name">' + p.n + ' уроков</h3>' +
+          '<h4 class="price__name">' + lessons(p.n) + '</h4>' +
           (p.best ? '<span class="price__badge">Выгоднее всего</span>' : '') +
           '<p class="price__sub">' + p.sub + '</p>' +
           '<p class="price__term">' + p.term + '</p>' +
           '<ul class="price__list">' +
             '<li data-k="lesson">Индивидуальные уроки по 60 минут</li>' +
-            feature(p.report, 'Отчёт о прогрессе раз в месяц', 'в пакетах от 20 уроков') +
-            feature(p.freeze, 'Заморозка пакета на время отпуска или болезни', 'в пакете из 40 уроков') +
+            feature(p.report, 'Отчёт о прогрессе раз в месяц', 'в абонементах от 20 уроков') +
+            feature(p.freeze, 'Заморозка абонемента на время отпуска или болезни', 'в абонементе на 40 уроков') +
           '</ul>' +
           '<div class="price__per"><span class="price__num" data-k="per"></span><span class="price__unit">за урок</span></div>' +
-          '<p class="price__total"><b data-k="total"></b> за пакет</p>' +
+          '<p class="price__total"><b data-k="total"></b> за абонемент</p>' +
           '<p class="price__was" data-k="was"></p>' +
           '<button type="button" class="btn ' + (p.best ? 'btn--white' : 'btn--ghost') + '" data-pack="' + p.n + '">Записаться</button>' +
+        '</article>'
+      );
+    }).join('');
+
+    programsEl.innerHTML = programs.map(function (p) {
+      return (
+        '<article class="prog reveal">' +
+          '<p class="prog__top"><span>' + p.tag + '</span><span>' + lessons(p.n) + '</span></p>' +
+          '<h4 class="prog__name">' + p.name + '</h4>' +
+          '<p class="prog__title">' + p.title + '</p>' +
+          '<p class="price__term">' + p.term + '</p>' +
+          '<ul class="price__list">' + p.points.map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</ul>' +
+          '<div class="prog__price">' +
+            '<span class="price__num" data-k="total"></span>' +
+            '<span class="price__unit">по <b data-k="per"></b> за урок</span>' +
+          '</div>' +
+          '<p class="price__was" data-k="was"></p>' +
+          '<button type="button" class="btn btn--ghost" data-program="' + p.id + '">Выбрать программу</button>' +
         '</article>'
       );
     }).join('');
@@ -167,18 +234,25 @@
   function renderPrices() {
     var cards = pricingEl.querySelectorAll('.price');
     PACKS.forEach(function (p, i) {
-      var c = packPrice(p);
+      var c = packPrice(p.n, p.off);
       var card = cards[i];
       tweenNumber(card.querySelector('[data-k="per"]'), c.per);
       card.querySelector('[data-k="total"]').textContent = rub(c.total);
-      card.querySelector('[data-k="was"]').innerHTML = c.off
-        ? '<s>' + rub(c.full) + '</s><span class="price__off">−' + c.off + '%</span>'
-        : 'без скидки';
+      card.querySelector('[data-k="was"]').innerHTML = wasHtml(c);
       card.querySelector('[data-k="lesson"]').textContent = 'Индивидуальные уроки по ' + state.dur + ' минут';
+    });
+    var progCards = programsEl.querySelectorAll('.prog');
+    programs.forEach(function (p, i) {
+      var c = packPrice(p.n, offFor(p.n));
+      tweenNumber(progCards[i].querySelector('[data-k="total"]'), c.total);
+      progCards[i].querySelector('[data-k="per"]').textContent = rub(c.per);
+      progCards[i].querySelector('[data-k="was"]').innerHTML = wasHtml(c);
     });
     tweenNumber(onePriceEl, lessonPrice(state.lang, state.format, state.dur));
   }
 
+  var programsEl = document.getElementById('programs');
+  var programs = PROGRAMS[state.lang];
   buildPricing();
 
   document.querySelectorAll('input[name="p-format"]').forEach(function (input) {
@@ -234,7 +308,7 @@
   function setPromo(promo, note) {
     var changed = (state.promo && state.promo.code) !== (promo && promo.code);
     state.promo = promo;
-    setPromoNote(promo ? 'Промокод действует: −' + promo.off + '% к цене пакетов' : (note || ''), Boolean(promo));
+    setPromoNote(promo ? 'Промокод действует: −' + promo.off + '% к цене абонементов и программ' : (note || ''), Boolean(promo));
     updatePromoBtn();
     if (changed) {
       renderPrices();
@@ -382,13 +456,13 @@
       (name ? 'Меня зовут ' + name + '. ' : '') +
       'Хочу записаться на бесплатный пробный урок ' + subjGen() + '. ' +
       'Кто будет заниматься: ' + who + '. Формат: ' + fmt + '.' +
-      (state.pack ? ' Интересует пакет: ' + state.pack.n + ' уроков по ' + state.pack.dur + ' минут.' : '') +
+      (state.choice ? ' ' + state.choice.msg : '') +
       (state.promo ? ' Промокод: ' + state.promo.code + '.' : '');
     signupMsg.textContent = msg;
     signupTg.href = tgLink(msg);
 
-    if (state.pack) {
-      packText.textContent = 'Пакет: ' + state.pack.n + ' уроков по ' + state.pack.dur + ' минут';
+    if (state.choice) {
+      packText.textContent = state.choice.label;
       packChip.hidden = false;
     } else {
       packChip.hidden = true;
@@ -400,19 +474,62 @@
     input.addEventListener('change', updateSignup);
   });
   document.getElementById('signup-pack-x').addEventListener('click', function () {
-    state.pack = null;
+    state.choice = null;
     updateSignup();
   });
 
-  pricingEl.addEventListener('click', function (e) {
-    var btn = e.target.closest('[data-pack]');
+  // «Записаться» у абонемента и «Выбрать программу»: выбор попадает в блок записи
+  document.getElementById('ceny').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-pack], [data-program]');
     if (!btn) return;
-    state.pack = { n: Number(btn.dataset.pack), dur: state.dur };
-    goal('pack');
+    var dur = state.dur + ' минут';
+    if (btn.dataset.pack) {
+      var n = lessons(Number(btn.dataset.pack));
+      state.choice = { label: 'Абонемент: ' + n + ' по ' + dur, msg: 'Интересует абонемент: ' + n + ' по ' + dur + '.' };
+      goal('pack');
+    } else {
+      var prog = programs.filter(function (x) { return x.id === btn.dataset.program; })[0];
+      state.choice = {
+        label: 'Программа «' + prog.name + '»: ' + lessons(prog.n) + ' по ' + dur,
+        msg: 'Интересует программа «' + prog.name + '» (' + prog.title.charAt(0).toLowerCase() + prog.title.slice(1) + '), ' + lessons(prog.n) + ' по ' + dur + '.'
+      };
+      goal('program');
+    }
     document.getElementById(state.format === 'offline' ? 'fmt-offline' : 'fmt-online').checked = true;
     updateSignup();
     document.getElementById('zapis').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth' });
   });
+
+  /* ---------- Подарочный сертификат ---------- */
+
+  // Выбор количества уроков и формата сразу меняет сертификат и цену,
+  // кнопка открывает чат с Елизаветой с готовым сообщением.
+  var giftBtn = document.getElementById('gift-btn');
+  var giftLessons = document.querySelector('[data-gift="n"]');
+  var giftPrice = document.querySelector('[data-gift="price"]');
+  var giftWas = document.querySelector('[data-gift="was"]');
+
+  function updateGift() {
+    var c = priceFor(state.giftN, offFor(state.giftN), state.giftFormat, 60, null);
+    var fmt = state.giftFormat === 'offline' ? 'лично' : 'онлайн';
+    giftLessons.textContent = lessons(state.giftN);
+    tweenNumber(giftPrice, c.total);
+    giftWas.innerHTML = c.off ? '<s>' + rub(c.full) + '</s> −' + c.off + '%' : '';
+    giftBtn.href = tgLink(HELLO + 'Хочу подарить сертификат на ' + lessons(state.giftN) + ' ' + subjGen() +
+      ' (' + fmt + ', по 60 минут) за ' + rub(c.total) + '. Подскажите, как оплатить?');
+  }
+
+  if (giftBtn) {
+    document.querySelectorAll('input[name="gift-n"], input[name="gift-fmt"]').forEach(function (input) {
+      input.addEventListener('change', function () {
+        if (input.name === 'gift-n') state.giftN = Number(input.value);
+        else state.giftFormat = input.value;
+        updateGift();
+      });
+    });
+    giftBtn.addEventListener('click', function () { goal('gift'); });
+    updateGift();
+  }
 
   /* ---------- Язык занятий ---------- */
 

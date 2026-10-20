@@ -183,7 +183,7 @@ a { color: inherit; text-decoration: none; }
 button, input { font: inherit; color: inherit; }
 button { cursor: pointer; background: none; border: 0; padding: 0; }
 p { margin: 0; }
-h1, h2, h3 { margin: 0; font-weight: 700; }
+h1, h2, h3, h4 { margin: 0; font-weight: 700; }
 ul, ol { margin: 0; padding: 0; list-style: none; }
 fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
 [hidden] { display: none !important; }
@@ -868,6 +868,122 @@ body.menu-open { overflow: hidden; }
 .price--best .btn { background: var(--block-btn); color: var(--block-btn-ink); }
 .price--best .btn:hover { background: var(--block-btn-hover); }
 
+/* Абонементы и программы: две группы справа от выбора формата */
+.pricing__main { min-width: 0; }
+.pricing__group + .pricing__group { margin-top: clamp(56px, 6vw, 88px); scroll-margin-top: calc(var(--header) + 24px); }
+.pricing__head { margin-bottom: 22px; }
+.pricing__title { font-size: clamp(24px, 2.2vw, 30px); line-height: 1.15; letter-spacing: -.025em; }
+.pricing__head p { margin-top: 8px; max-width: 38em; font-size: 15.5px; line-height: 1.55; color: var(--muted); }
+
+.programs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 clamp(28px, 4vw, 56px);
+}
+.prog {
+  display: flex;
+  flex-direction: column;
+  padding: 26px 0 40px;
+  border-top: 1px solid var(--line);
+}
+.prog__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.prog__top span:first-child { color: var(--accent); transition: color .6s var(--ease-soft); }
+.prog__name {
+  margin-top: 18px;
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 600;
+  font-size: clamp(36px, 3.3vw, 46px);
+  line-height: 1;
+  letter-spacing: -.01em;
+  color: var(--accent);
+  transition: color .6s var(--ease-soft);
+}
+.prog__title { margin-top: 10px; font-size: 17px; font-weight: 700; line-height: 1.35; }
+.prog .price__list { margin-bottom: 26px; }
+.prog__price { margin-top: auto; display: flex; align-items: baseline; gap: 6px 12px; flex-wrap: wrap; }
+.prog__price .price__unit b { font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.prog .btn { margin-top: 18px; align-self: flex-start; --h: 50px; }
+
+/* ---------- Подарок ---------- */
+
+.gift {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 560px);
+  gap: clamp(32px, 6vw, 96px);
+  align-items: center;
+}
+.gift__steps { margin-top: 32px; display: grid; gap: 14px; max-width: 34em; }
+.gift__steps li { display: flex; align-items: baseline; gap: 16px; font-size: 17px; font-weight: 600; line-height: 1.45; color: var(--ink-2); }
+.gift__steps span { flex: none; font-family: var(--mono); font-size: 13px; color: var(--accent); transition: color .6s var(--ease-soft); }
+
+.gift__panel {
+  display: grid;
+  gap: 18px;
+  padding: clamp(18px, 3vw, 32px);
+  border-radius: var(--radius-lg);
+}
+
+/* сертификат: белая карточка, как настоящая */
+.cert {
+  display: flex;
+  flex-direction: column;
+  min-height: 300px;
+  padding: 26px 28px 22px;
+  border-radius: 20px;
+  background: #fff;
+  color: var(--ink);
+}
+.cert__top { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+.cert__logo { font-size: 22px; line-height: 1; white-space: nowrap; }
+.cert__logo b { font-weight: 800; letter-spacing: -.06em; }
+.cert__logo i { font-family: var(--serif); font-style: italic; font-weight: 600; font-size: 1.12em; letter-spacing: -.02em; color: var(--accent); }
+.cert__no { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; color: var(--muted); }
+.cert__label {
+  margin-top: auto;
+  padding-top: 40px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.cert__value { margin-top: 8px; font-size: clamp(40px, 4.4vw, 58px); line-height: 1; font-weight: 700; letter-spacing: -.04em; }
+.cert__sub { margin-top: 10px; font-size: 15px; color: var(--muted); }
+.cert__date {
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: .08em;
+  color: var(--muted);
+}
+
+.gift__controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; }
+.gift__opt .eyebrow { margin: 4px 0 8px 4px; }
+.gift__opt .seg label { min-height: 44px; padding: 0 8px; }
+.seg--3 .seg__thumb { width: calc((100% - 10px) / 3); }
+.seg--3 input:nth-of-type(3):checked ~ .seg__thumb { transform: translateX(200%); }
+
+.gift__buy { display: flex; align-items: center; justify-content: space-between; gap: 12px 20px; flex-wrap: wrap; }
+.gift__price { display: grid; gap: 2px; }
+.gift__price b { font-size: clamp(30px, 2.8vw, 40px); line-height: 1; font-weight: 700; letter-spacing: -.04em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gift__price span { font-size: 14px; color: var(--block-faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.gift__price span:empty { display: none; }
+.gift__terms { font-size: 13.5px; line-height: 1.5; color: var(--block-faint); }
+
 /* ---------- Вопросы ---------- */
 
 .faq {
@@ -1108,6 +1224,8 @@ body.menu-open { overflow: hidden; }
 .price:nth-child(2) { --d: .07s; }
 .price:nth-child(3) { --d: .14s; }
 .price:nth-child(4) { --d: .21s; }
+.prog:nth-child(2n),
+.gift__panel { --d: .08s; }
 
 .js .hero__eyebrow,
 .js .hero__buttons {
@@ -1142,6 +1260,11 @@ body.menu-open { overflow: hidden; }
 
 /* ---------- Адаптив ---------- */
 
+@media (min-width: 1181px) {
+  /* выбор формата и промокод едут рядом, пока листаются абонементы и программы */
+  .pricing__side { position: sticky; top: calc(var(--header) + 24px); }
+}
+
 @media (max-width: 1180px) {
   /* Цены на планшете и телефоне: выбор формата и длительности прилипает к шапке,
      поэтому при переключении сразу видно, как меняется цена пакета */
@@ -1160,14 +1283,17 @@ body.menu-open { overflow: hidden; }
   }
   .pricing__opt { margin: 0; }
   .promo { max-width: 440px; margin: 14px 0 24px; }
-  .pricing__cards { order: 1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pricing__main { order: 1; }
+  .pricing__cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pricing__info { order: 2; margin-top: 28px; }
   .pricing__info .pricing__text { max-width: 44em; }
 }
 
 @media (max-width: 1080px) {
   .trial__panel,
-  .signup { grid-template-columns: 1fr; }
+  .signup,
+  .gift { grid-template-columns: 1fr; }
+  .gift__panel { max-width: 560px; }
   .trial__panel .form,
   .signup__form { max-width: 560px; }
   .faq,
@@ -1227,6 +1353,12 @@ body.menu-open { overflow: hidden; }
   }
   .pricing__cards::-webkit-scrollbar { display: none; }
   .price { scroll-snap-align: start; }
+  .programs { grid-template-columns: 1fr; }
+  .prog { padding-bottom: 32px; }
+  .gift__panel { border-radius: 26px; padding: 14px 14px 20px; }
+  .cert { min-height: 250px; padding: 22px 20px 18px; }
+  .gift__buy .btn { width: 100%; }
+  .gift__terms { padding: 0 4px; }
   .signup { border-radius: 26px; padding: 30px 18px 18px; }
   .signup__buttons { grid-template-columns: 1fr; }
   .faq__q { padding: 22px 0; }

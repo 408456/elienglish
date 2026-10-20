@@ -30,7 +30,7 @@
   <link rel="preload" as="image" href="assets/img/teacher-en-v2-1030.webp" imagesrcset="assets/img/teacher-en-v2-680.webp 680w, assets/img/teacher-en-v2-1030.webp 1030w" imagesizes="(max-width: 760px) 380px, 560px" fetchpriority="high">
   <!-- preload:end -->
   <link rel="preload" as="font" type="font/woff2" href="assets/fonts/manrope-cyrillic.woff2" crossorigin>
-  <link rel="stylesheet" href="assets/css/style.css?v=a6da412e">
+  <link rel="stylesheet" href="assets/css/style.css?v=79419765">
   <script src="assets/js/head.js?v=ccd3cd6c"></script>
   <!-- metrika:start: Яндекс Метрика, подключает tools/build.mjs, если задан METRIKA_ID -->
   <!-- metrika:end -->
@@ -129,10 +129,26 @@
         },
         {
           "@type": "Question",
-          "name": "Как работают пакеты?",
+          "name": "Как работают абонементы?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Вы оплачиваете сразу 5, 10, 20 или 40 уроков. Пакет из 40 уроков можно заморозить на время отпуска или болезни."
+            "text": "Вы оплачиваете сразу 5, 10, 20 или 40 уроков. Абонемент на 40 уроков можно заморозить на время отпуска или болезни."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Чем программа отличается от абонемента?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "В абонементе темы выбираем вместе по ходу занятий. Программа это готовый план под одну задачу, например переезд или собеседование: число уроков и результат известны заранее."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Как оплатить?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Переводом по номеру телефона после бесплатного пробного урока. Номер пришлём в Telegram."
           }
         }
       ]
@@ -155,6 +171,7 @@
         <a href="#podhod">Подход</a>
         <a href="#dlya-kogo">Для кого</a>
         <a href="#ceny">Цены</a>
+        <a href="#podarok">Подарок</a>
         <a href="#voprosy">Вопросы</a>
         <a href="#kontakty">Контакты</a>
       </nav>
@@ -177,6 +194,7 @@
         <a href="#podhod">Подход</a>
         <a href="#dlya-kogo">Для кого</a>
         <a href="#ceny">Цены</a>
+        <a href="#podarok">Подарок</a>
         <a href="#voprosy">Вопросы</a>
         <a href="#kontakty">Контакты</a>
       </nav>
@@ -418,7 +436,86 @@
             </div>
           </div>
 
-          <div class="pricing__cards" id="pricing" aria-live="polite"></div>
+          <div class="pricing__main">
+            <div class="pricing__group">
+              <div class="pricing__head reveal">
+                <h3 class="pricing__title">Абонементы</h3>
+                <p>Уроки по вашему плану: темы и темп подбираем вместе, оплата сразу за несколько уроков.</p>
+              </div>
+              <div class="pricing__cards" id="pricing" aria-live="polite"></div>
+            </div>
+
+            <div class="pricing__group" id="programmy">
+              <div class="pricing__head reveal">
+                <h3 class="pricing__title">Программы под цель</h3>
+                <p>Готовый план под одну задачу. Заранее известно, сколько будет уроков и что вы сможете в конце.</p>
+              </div>
+              <div class="programs" id="programs" aria-live="polite"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Подарок -->
+    <section class="section" id="podarok">
+      <div class="container">
+        <div class="gift">
+          <div class="gift__intro reveal">
+            <p class="eyebrow">Подарок</p>
+            <h2 class="h2">Подарите уроки <em data-i18n="subjGen">английского</em></h2>
+            <p class="lead">Именной сертификат на индивидуальные уроки с преподавателем. Подойдёт взрослому и ребёнку от 4&nbsp;лет.</p>
+            <ol class="gift__steps">
+              <li><span>01</span>Выберите сертификат и напишите Елизавете в&nbsp;Telegram</li>
+              <li><span>02</span>Оплатите переводом по номеру телефона</li>
+              <li><span>03</span>В тот же день получите сертификат с&nbsp;номером: файл для печати и открытку для мессенджера</li>
+              <li><span>04</span>Получатель приходит на бесплатный пробный урок и сам выбирает время занятий</li>
+            </ol>
+          </div>
+
+          <div class="gift__panel accent-block reveal">
+            <div class="cert" aria-hidden="true">
+              <div class="cert__top">
+                <span class="cert__logo"><b>eli</b><i data-i18n="logo">english</i></span>
+                <span class="cert__no">№ 0001</span>
+              </div>
+              <p class="cert__label">Подарочный сертификат</p>
+              <p class="cert__value" data-gift="n">10 уроков</p>
+              <p class="cert__sub">индивидуально с&nbsp;преподавателем, по&nbsp;60&nbsp;минут</p>
+              <p class="cert__date">Действует 12 месяцев</p>
+            </div>
+
+            <div class="gift__controls">
+              <div class="gift__opt">
+                <p class="eyebrow" id="gift-n-label">Уроков</p>
+                <fieldset class="seg seg--3" aria-labelledby="gift-n-label">
+                  <input type="radio" name="gift-n" id="gn-5" value="5">
+                  <label for="gn-5">5</label>
+                  <input type="radio" name="gift-n" id="gn-10" value="10" checked>
+                  <label for="gn-10">10</label>
+                  <input type="radio" name="gift-n" id="gn-20" value="20">
+                  <label for="gn-20">20</label>
+                  <span class="seg__thumb" aria-hidden="true"></span>
+                </fieldset>
+              </div>
+              <div class="gift__opt">
+                <p class="eyebrow" id="gift-fmt-label">Формат</p>
+                <fieldset class="seg" aria-labelledby="gift-fmt-label">
+                  <input type="radio" name="gift-fmt" id="gf-online" value="online" checked>
+                  <label for="gf-online">Онлайн</label>
+                  <input type="radio" name="gift-fmt" id="gf-offline" value="offline">
+                  <label for="gf-offline">Лично</label>
+                  <span class="seg__thumb" aria-hidden="true"></span>
+                </fieldset>
+              </div>
+            </div>
+
+            <div class="gift__buy">
+              <p class="gift__price"><b data-gift="price">14 200 ₽</b><span data-gift="was"></span></p>
+              <a class="btn btn--primary" id="gift-btn" href="https://t.me/Eligolc" target="_blank" rel="noopener">Подарить сертификат</a>
+            </div>
+            <p class="gift__terms">Сертификат действует 12&nbsp;месяцев с&nbsp;даты покупки. Его можно передать другому человеку.</p>
+          </div>
         </div>
       </div>
     </section>
@@ -450,8 +547,16 @@
             <div class="faq__a" id="faq-4" role="region" aria-labelledby="faq-4-q"><div><p>По видеозвонку. Нужны компьютер или планшет с камерой и стабильный интернет.</p></div></div>
           </div>
           <div class="faq__item">
-            <h3><button type="button" class="faq__q" aria-expanded="false" aria-controls="faq-5" id="faq-5-q">Как работают пакеты?<span class="faq__plus" aria-hidden="true"></span></button></h3>
-            <div class="faq__a" id="faq-5" role="region" aria-labelledby="faq-5-q"><div><p>Вы оплачиваете сразу 5, 10, 20 или 40 уроков. Пакет из 40 уроков можно заморозить на время отпуска или болезни.</p></div></div>
+            <h3><button type="button" class="faq__q" aria-expanded="false" aria-controls="faq-5" id="faq-5-q">Как работают абонементы?<span class="faq__plus" aria-hidden="true"></span></button></h3>
+            <div class="faq__a" id="faq-5" role="region" aria-labelledby="faq-5-q"><div><p>Вы оплачиваете сразу 5, 10, 20 или 40 уроков. Абонемент на 40 уроков можно заморозить на время отпуска или болезни.</p></div></div>
+          </div>
+          <div class="faq__item">
+            <h3><button type="button" class="faq__q" aria-expanded="false" aria-controls="faq-6" id="faq-6-q">Чем программа отличается от абонемента?<span class="faq__plus" aria-hidden="true"></span></button></h3>
+            <div class="faq__a" id="faq-6" role="region" aria-labelledby="faq-6-q"><div><p>В абонементе темы выбираем вместе по ходу занятий. Программа это готовый план под одну задачу, например переезд или собеседование: число уроков и результат известны заранее.</p></div></div>
+          </div>
+          <div class="faq__item">
+            <h3><button type="button" class="faq__q" aria-expanded="false" aria-controls="faq-7" id="faq-7-q">Как оплатить?<span class="faq__plus" aria-hidden="true"></span></button></h3>
+            <div class="faq__a" id="faq-7" role="region" aria-labelledby="faq-7-q"><div><p>Переводом по номеру телефона после бесплатного пробного урока. Номер пришлём в Telegram.</p></div></div>
           </div>
         </div>
       </div>
@@ -545,6 +650,7 @@
             <a href="#podhod">Подход</a>
             <a href="#dlya-kogo">Для кого</a>
             <a href="#ceny">Цены</a>
+            <a href="#podarok">Подарок</a>
             <a href="#voprosy">Вопросы</a>
           </div>
         </div>
@@ -559,6 +665,6 @@
     </div>
   </footer>
 
-  <script src="assets/js/main.js?v=46c0f013" defer></script>
+  <script src="assets/js/main.js?v=57371b5c" defer></script>
 </body>
 </html>

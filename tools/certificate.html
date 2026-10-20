@@ -1,0 +1,56 @@
+<!doctype html>
+<!-- Шаблон подарочного сертификата. Заполняет и печатает tools/certificate.mjs, руками не открывать. -->
+<html lang="ru" data-lang="{{lang}}">
+<head>
+<meta charset="utf-8">
+<style>
+  {{fonts}}
+  :root { --ink: #15172B; --muted: #676A82; --line: #E6E7EE; --accent: #4B3BC9; --band: #4B3BC9; --band-ink: #fff; --band-soft: rgba(255,255,255,.75); }
+  html[data-lang="pl"] { --ink: #241D18; --muted: #7A6E64; --line: #ECE5DC; --accent: #8A6A4C; --band: #EFE6DA; --band-ink: #241D18; --band-soft: rgba(36,29,24,.7); }
+  @page { size: 297mm 210mm; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1123px; height: 794px; background: #fff; }
+  body { font-family: "Manrope", Arial, sans-serif; color: var(--ink); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { position: relative; width: 1123px; height: 794px; display: flex; flex-direction: column; overflow: hidden; }
+  .main { flex: 1; padding: 64px 80px 0; display: flex; flex-direction: column; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; }
+  .logo { font-size: 34px; line-height: 1; white-space: nowrap; }
+  .logo b { font-weight: 800; letter-spacing: -.06em; }
+  .logo i { font-family: "Cormorant Garamond", Georgia, serif; font-style: italic; font-weight: 600; font-size: 1.12em; letter-spacing: -.02em; color: var(--accent); }
+  .mono { font-family: "IBM Plex Mono", Consolas, monospace; font-weight: 500; letter-spacing: .16em; text-transform: uppercase; }
+  .no { font-size: 15px; color: var(--muted); letter-spacing: .12em; }
+  .label { margin-top: 92px; font-size: 16px; color: var(--accent); }
+  .value { margin-top: 14px; font-size: 104px; line-height: 1; font-weight: 700; letter-spacing: -.045em; }
+  .value em { font-family: "Cormorant Garamond", Georgia, serif; font-style: italic; font-weight: 600; font-size: 1.04em; letter-spacing: -.01em; color: var(--accent); }
+  .sub { margin-top: 18px; font-size: 22px; color: var(--muted); }
+  .to { margin-top: auto; padding: 0 0 40px; display: flex; gap: 64px; align-items: flex-end; }
+  .to div { display: grid; gap: 8px; }
+  .to .mono { font-size: 13px; color: var(--muted); }
+  .to p:not(.mono) { font-family: "Cormorant Garamond", Georgia, serif; font-style: italic; font-weight: 600; font-size: 40px; line-height: 1.05; }
+  .to:empty { display: none; }
+  .band { display: grid; grid-template-columns: auto 1fr auto; gap: 48px; align-items: center; padding: 30px 80px 34px; background: var(--band); color: var(--band-ink); }
+  .band .mono { font-size: 12px; letter-spacing: .14em; color: var(--band-soft); margin-bottom: 6px; }
+  .band p:not(.mono) { font-size: 19px; font-weight: 700; }
+  .band .contacts p:not(.mono) { font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="page">
+    <div class="main">
+      <div class="top">
+        <span class="logo"><b>eli</b><i>{{word}}</i></span>
+        <span class="mono no">№ {{no}}</span>
+      </div>
+      <p class="mono label">Подарочный сертификат</p>
+      <p class="value">{{lessons}} <em>{{subject}}</em></p>
+      <p class="sub">Индивидуальные уроки с преподавателем по 60 минут, {{format}}</p>
+      <div class="to">{{to}}</div>
+    </div>
+    <div class="band">
+      <div><p class="mono">Действует до</p><p>{{until}}</p></div>
+      <div class="contacts"><p class="mono">Записаться на занятия</p><p>Telegram @Eligolc · +7 977 748-07-96 · {{site}}</p></div>
+      <div><p class="mono">Номер</p><p>{{no}}</p></div>
+    </div>
+  </div>
+</body>
+</html>
